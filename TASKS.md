@@ -31,7 +31,7 @@ checklist Claude Code executes against.
   `requests`/`httpx`/`socket`/`urllib.request` appear under the core package.
   Encodes `CLAUDE.md` invariant 1. *Done when it fails on a deliberately-added
   `import requests` and passes otherwise.*
-- [ ] **0.5 Event model.** Typed `Event` per `SPEC.md` §2, pure (no I/O).
+- [x] **0.5 Event model.** Typed `Event` per `SPEC.md` §2, pure (no I/O).
   *Done when it round-trips a hand-written event.*
 - [ ] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
   OTel/OpenInference subset in `SPEC.md` §7) and a loader that parses one
