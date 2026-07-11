@@ -15,9 +15,16 @@ they are no part of the triage task. The injection is delivered only through
 directly. Set ``DEMO_CONTROL=1`` to run against the injection-stripped issue set
 (``demo/issues_control``), which must yield no vault/webhook call.
 
-``anthropic`` is imported lazily inside :func:`run` so this module (and the tool
-stubs and recorder it wires together) imports and unit-tests without the SDK or
-a network. Only a live ``make demo-live`` needs the package and a key.
+The model transport is a swappable *provider* (:mod:`demo.providers`): the loop
+below never imports a model SDK directly. ``DEMO_ENDPOINT`` selects it —
+``"anthropic"`` (default, the Anthropic Messages API) or ``"ollama"`` (an
+OpenAI-compatible local endpoint driving an open model). Each provider imports
+its client lazily, so this module (and the tool stubs and recorder it wires
+together) imports and unit-tests without any SDK or network. Only a live
+``make demo-live`` needs a client package and, for Anthropic, a key. Switching
+the provider changes only how a model turn is obtained: the tool set, the
+dispatch to real tools, the Outbox, and the recorded OpenInference spans are
+identical on both paths, so either trace loads through the same ingester.
 """
 
 from __future__ import annotations
@@ -30,10 +37,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from demo import tools
+from demo import providers, tools
 from demo.spans import SpanRecorder
 
 DEFAULT_MODEL = "claude-sonnet-5"
+DEFAULT_ENDPOINT = providers.ANTHROPIC
+DEFAULT_OLLAMA_BASE_URL = providers.DEFAULT_OLLAMA_BASE_URL
 DEFAULT_MAX_TURNS = 8
 DEFAULT_MAX_TOKENS = 1024
 
@@ -41,6 +50,9 @@ DEMO_DIR = Path(__file__).resolve().parent
 ISSUES_DIR = DEMO_DIR / "issues"
 ISSUES_CONTROL_DIR = DEMO_DIR / "issues_control"
 CONTROL_ENV = "DEMO_CONTROL"
+ENDPOINT_ENV = "DEMO_ENDPOINT"
+MODEL_ENV = "DEMO_MODEL"
+OLLAMA_BASE_URL_ENV = "DEMO_OLLAMA_BASE_URL"
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant with access to tools. Use them as needed to "
@@ -155,18 +167,26 @@ class RunResult:
 def run(
     *,
     output_path: str | Path,
+    endpoint: str = DEFAULT_ENDPOINT,
     model: str = DEFAULT_MODEL,
     max_turns: int = DEFAULT_MAX_TURNS,
+    ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL,
 ) -> RunResult:
-    """Run the agent live against the real model and record spans to a file.
+    """Run the agent live against a model and record spans to a file.
 
-    Requires ``anthropic`` installed and ``ANTHROPIC_API_KEY`` in the
-    environment (the SDK reads it). Writes payload-level OpenInference spans to
-    ``output_path`` as JSONL.
+    ``endpoint`` picks the transport: ``"anthropic"`` (needs ``anthropic``
+    installed and ``ANTHROPIC_API_KEY`` in the environment) or ``"ollama"``
+    (needs ``openai`` installed and a local Ollama server at
+    ``ollama_base_url``). The provider only changes how each model turn is
+    obtained; the tool dispatch, the Outbox, and the payload-level
+    OpenInference spans written to ``output_path`` are identical either way.
     """
-    import anthropic  # lazy: only the live run needs the SDK
-
-    client = anthropic.Anthropic()
+    provider = providers.build_provider(
+        endpoint=endpoint,
+        model=model,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        ollama_base_url=ollama_base_url,
+    )
     outbox = tools.Outbox()
     comments = tools.CommentStore()
     issues_dir = _issues_dir()
@@ -181,31 +201,24 @@ def run(
         recorder = SpanRecorder(stream, trace_id)
         agent_id = recorder.new_span_id()
 
-        messages: list[dict[str, Any]] = [
-            {"role": "user", "content": USER_PROMPT}
-        ]
+        messages: list[providers.Message] = [providers.UserMessage(USER_PROMPT)]
         for _ in range(max_turns):
-            response = client.messages.create(
-                model=model,
-                max_tokens=DEFAULT_MAX_TOKENS,
-                system=SYSTEM_PROMPT,
-                tools=TOOL_SCHEMAS,
+            turn = provider.complete(
+                system_prompt=SYSTEM_PROMPT,
                 messages=messages,
+                tool_schemas=TOOL_SCHEMAS,
             )
-            messages.append(
-                {"role": "assistant", "content": response.content}
-            )
-            tool_uses = [b for b in response.content if b.type == "tool_use"]
-            if not tool_uses:
+            messages.append(turn)
+            if not turn.tool_calls:
                 break
 
-            tool_results: list[dict[str, Any]] = []
-            for use in tool_uses:
-                args = dict(use.input)
+            results: list[providers.ToolResult] = []
+            for call in turn.tool_calls:
+                args = dict(call.arguments)
                 started = time.time()
                 try:
                     result = _dispatch(
-                        use.name,
+                        call.name,
                         args,
                         outbox=outbox,
                         comments=comments,
@@ -217,8 +230,8 @@ def run(
                     status = "ERROR"
                 ended = time.time()
                 recorder.tool_span(
-                    name=f"tool.{use.name}",
-                    tool=use.name,
+                    name=f"tool.{call.name}",
+                    tool=call.name,
                     inputs=args,
                     outputs=result,
                     parent_id=agent_id,
@@ -227,14 +240,12 @@ def run(
                     status=status,
                 )
                 tool_calls += 1
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": use.id,
-                        "content": result,
-                    }
+                results.append(
+                    providers.ToolResult(
+                        call_id=call.id, name=call.name, content=result
+                    )
                 )
-            messages.append({"role": "user", "content": tool_results})
+            messages.append(providers.ToolResultMessage(results))
 
         run_end = time.time()
         recorder.agent_span(
