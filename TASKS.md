@@ -33,7 +33,7 @@ checklist Claude Code executes against.
   `import requests` and passes otherwise.*
 - [x] **0.5 Event model.** Typed `Event` per `SPEC.md` §2, pure (no I/O).
   *Done when it round-trips a hand-written event.*
-- [ ] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
+- [x] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
   OTel/OpenInference subset in `SPEC.md` §7) and a loader that parses one
   fixture into `Event[]`. *Done when one committed fixture loads and parses.*
 - [ ] **0.7 Acceptance harness (`make check`).** The phase done-whens as runnable
