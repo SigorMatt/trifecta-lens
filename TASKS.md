@@ -27,7 +27,7 @@ checklist Claude Code executes against.
   prints the version. *Done when `trifecta-lens --version` runs.*
 - [x] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
   *Done when CI is green on a trivial test.*
-- [ ] **0.4 "No network in core" guard.** A test (import/AST scan) that fails if
+- [x] **0.4 "No network in core" guard.** A test (import/AST scan) that fails if
   `requests`/`httpx`/`socket`/`urllib.request` appear under the core package.
   Encodes `CLAUDE.md` invariant 1. *Done when it fails on a deliberately-added
   `import requests` and passes otherwise.*
