@@ -14,14 +14,7 @@ jobs:
         uses: astral-sh/setup-uv@v8.1.0
         with:
           version: "0.11.25"
-      - name: uv available
-        run: uv --version
-
-      # ---- STUB ----
-      # Task 0.3 replaces the body below with the real pipeline:
-      #   - run: uv sync --extra dev
-      #   - run: uv run ruff check .
-      #   - run: uv run mypy trifecta_lens
-      #   - run: uv run pytest
-      # Tasks 0.7/0.8 then wire 'make check' + the honesty/architecture gates
-      # into CI. Until 0.1 lands a package, keep this green on the bare seed.
+      - run: uv sync --extra dev
+      # make check wraps the exact toolchain commands (ruff, mypy, pytest)
+      # plus the phase done-whens — the acceptance harness, task 0.7.
+      - run: make check

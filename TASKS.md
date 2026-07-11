@@ -19,29 +19,29 @@ checklist Claude Code executes against.
 
 ## Phase 0 — Skeleton & contract
 
-- [ ] **0.1 Repo scaffold.** `pyproject.toml` (Python 3.11+, ruff/mypy/pytest),
+- [x] **0.1 Repo scaffold.** `pyproject.toml` (Python 3.11+, ruff/mypy/pytest),
   package layout `trifecta_lens/` (core) + `trifecta_lens/cli.py`, `LICENSE`,
   `.gitignore`, README stub. *Done when `uv sync --extra dev` succeeds and
   `uv run python -c "import trifecta_lens"` exits 0.*
-- [ ] **0.2 CLI entrypoint.** `console_scripts` → `trifecta-lens`; `--version`
+- [x] **0.2 CLI entrypoint.** `console_scripts` → `trifecta-lens`; `--version`
   prints the version. *Done when `trifecta-lens --version` runs.*
-- [ ] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
+- [x] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
   *Done when CI is green on a trivial test.*
-- [ ] **0.4 "No network in core" guard.** A test (import/AST scan) that fails if
+- [x] **0.4 "No network in core" guard.** A test (import/AST scan) that fails if
   `requests`/`httpx`/`socket`/`urllib.request` appear under the core package.
   Encodes `CLAUDE.md` invariant 1. *Done when it fails on a deliberately-added
   `import requests` and passes otherwise.*
-- [ ] **0.5 Event model.** Typed `Event` per `SPEC.md` §2, pure (no I/O).
+- [x] **0.5 Event model.** Typed `Event` per `SPEC.md` §2, pure (no I/O).
   *Done when it round-trips a hand-written event.*
-- [ ] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
+- [x] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
   OTel/OpenInference subset in `SPEC.md` §7) and a loader that parses one
   fixture into `Event[]`. *Done when one committed fixture loads and parses.*
-- [ ] **0.7 Acceptance harness (`make check`).** The phase done-whens as runnable
+- [x] **0.7 Acceptance harness (`make check`).** The phase done-whens as runnable
   checks, not prose: `trifecta-lens --version` exits 0; the worked fixture loads
   to the expected `Event` count. (Extended in Phase 1: positive fixture → exactly
   one realized finding with the path; benign → none; re-run byte-identical.)
   Wired into CI. *Done when `make check` passes on the Phase 0 deliverables.*
-- [ ] **0.8 Honesty + architecture gates (CI).** A test that fails if report text
+- [x] **0.8 Honesty + architecture gates (CI).** A test that fails if report text
   contains banned causal/attack tokens (`attack`, `exfiltration occurred`,
   `caused`, …); an import/AST check that fails if detection core contains a
   per-tool branch (`if tool ==` / `== "<name>"`). Encodes `CLAUDE.md` invariants
