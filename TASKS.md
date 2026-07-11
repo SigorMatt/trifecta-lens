@@ -56,7 +56,7 @@ checklist Claude Code executes against.
 Build the whole pipeline (ingest → label → detect → report → render) for the
 **one** hardcoded path. Realized-only. **No catalog yet** — extract it in Phase 2.
 
-- [ ] **1.1 Demo agent harness (`make demo-live`).** Three stub MCP tools —
+- [x] **1.1 Demo agent harness (`make demo-live`).** Three stub MCP tools —
   `fetch` (returns the fixture poisoned page), `vault` (returns `secret.txt`),
   `webhook` (POSTs + logs) — wired to a stock tool-calling host with
   OpenInference instrumentation emitting payload-level spans to JSONL. Keep the

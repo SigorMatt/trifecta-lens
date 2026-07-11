@@ -26,3 +26,9 @@ venv/
 # Secrets -- never commit. The demo model API key lives only in the human env.
 .env
 *.key
+
+# Scratch outputs from offline demo-plumbing smoke tests. NEVER the
+# authoritative fixtures/demo_exfil.jsonl (that one is human-recorded and
+# committed on purpose, task 1.2).
+*.local.jsonl
+demo/_scratch/
