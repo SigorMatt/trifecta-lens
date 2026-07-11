@@ -19,7 +19,7 @@ checklist Claude Code executes against.
 
 ## Phase 0 — Skeleton & contract
 
-- [ ] **0.1 Repo scaffold.** `pyproject.toml` (Python 3.11+, ruff/mypy/pytest),
+- [x] **0.1 Repo scaffold.** `pyproject.toml` (Python 3.11+, ruff/mypy/pytest),
   package layout `trifecta_lens/` (core) + `trifecta_lens/cli.py`, `LICENSE`,
   `.gitignore`, README stub. *Done when `uv sync --extra dev` succeeds and
   `uv run python -c "import trifecta_lens"` exits 0.*
