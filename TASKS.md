@@ -23,7 +23,7 @@ checklist Claude Code executes against.
   package layout `trifecta_lens/` (core) + `trifecta_lens/cli.py`, `LICENSE`,
   `.gitignore`, README stub. *Done when `uv sync --extra dev` succeeds and
   `uv run python -c "import trifecta_lens"` exits 0.*
-- [ ] **0.2 CLI entrypoint.** `console_scripts` → `trifecta-lens`; `--version`
+- [x] **0.2 CLI entrypoint.** `console_scripts` → `trifecta-lens`; `--version`
   prints the version. *Done when `trifecta-lens --version` runs.*
 - [ ] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
   *Done when CI is green on a trivial test.*
