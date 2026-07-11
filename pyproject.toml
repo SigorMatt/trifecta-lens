@@ -21,6 +21,17 @@ dev = [
     "mypy>=1.11",
     "pytest>=8",
 ]
+# demo/ only (the human-run `make demo-live`, task 1.2). Isolated from the
+# analyzer core, which has zero runtime dependencies: `make check` uses `dev`
+# and never installs this. The model SDK is the single credentialed piece.
+demo = [
+    "anthropic>=0.40",
+]
+
+[tool.hatch.build.targets.wheel]
+# Ship only the analyzer core. demo/ and tests/ are development/human-run and
+# are not part of the distributed package.
+packages = ["trifecta_lens"]
 
 [tool.ruff]
 line-length = 88
