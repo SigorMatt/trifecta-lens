@@ -15,6 +15,6 @@ jobs:
         with:
           version: "0.11.25"
       - run: uv sync --extra dev
-      - run: uv run ruff check .
-      - run: uv run mypy trifecta_lens
-      - run: uv run pytest
+      # make check wraps the exact toolchain commands (ruff, mypy, pytest)
+      # plus the phase done-whens — the acceptance harness, task 0.7.
+      - run: make check

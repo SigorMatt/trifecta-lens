@@ -36,7 +36,7 @@ checklist Claude Code executes against.
 - [x] **0.6 Trace-fixture format + loader.** Define the JSONL span schema (the
   OTel/OpenInference subset in `SPEC.md` §7) and a loader that parses one
   fixture into `Event[]`. *Done when one committed fixture loads and parses.*
-- [ ] **0.7 Acceptance harness (`make check`).** The phase done-whens as runnable
+- [x] **0.7 Acceptance harness (`make check`).** The phase done-whens as runnable
   checks, not prose: `trifecta-lens --version` exits 0; the worked fixture loads
   to the expected `Event` count. (Extended in Phase 1: positive fixture → exactly
   one realized finding with the path; benign → none; re-run byte-identical.)
