@@ -25,7 +25,7 @@ checklist Claude Code executes against.
   `uv run python -c "import trifecta_lens"` exits 0.*
 - [x] **0.2 CLI entrypoint.** `console_scripts` → `trifecta-lens`; `--version`
   prints the version. *Done when `trifecta-lens --version` runs.*
-- [ ] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
+- [x] **0.3 CI.** GitHub Actions: ruff + mypy + pytest on push/PR.
   *Done when CI is green on a trivial test.*
 - [ ] **0.4 "No network in core" guard.** A test (import/AST scan) that fails if
   `requests`/`httpx`/`socket`/`urllib.request` appear under the core package.
