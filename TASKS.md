@@ -41,7 +41,7 @@ checklist Claude Code executes against.
   to the expected `Event` count. (Extended in Phase 1: positive fixture → exactly
   one realized finding with the path; benign → none; re-run byte-identical.)
   Wired into CI. *Done when `make check` passes on the Phase 0 deliverables.*
-- [ ] **0.8 Honesty + architecture gates (CI).** A test that fails if report text
+- [x] **0.8 Honesty + architecture gates (CI).** A test that fails if report text
   contains banned causal/attack tokens (`attack`, `exfiltration occurred`,
   `caused`, …); an import/AST check that fails if detection core contains a
   per-tool branch (`if tool ==` / `== "<name>"`). Encodes `CLAUDE.md` invariants
