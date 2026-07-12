@@ -11,10 +11,12 @@ from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
 
+from trifecta_lens.catalog import Catalog, default_catalog, load_catalog
 from trifecta_lens.engine import detect_realized
 from trifecta_lens.findings import Finding, write_ndjson
 from trifecta_lens.labeling import label_events
-from trifecta_lens.loader import load_trace
+from trifecta_lens.loader import load_otlp_trace, load_trace
+from trifecta_lens.model import Event
 from trifecta_lens.report import format_report
 from trifecta_lens.svg import render_svg
 
@@ -24,6 +26,28 @@ _SCOPE_HELP = (
     "Transformed taint, cross-agent multi-hop and memory-poisoning are out of "
     "scope and are not detected. This slice runs the realized tier only."
 )
+
+
+def _load_events(path: Path) -> list[Event]:
+    """Pick the trace front-end by looking at the file, not by trusting its name.
+
+    Two Stage-1 front-ends exist (FIXTURES.md): the flat JSONL fixture shape and
+    real OTLP/JSON. An OTLP document is a single JSON object with a
+    ``resourceSpans`` array; the flat shape is one JSON object per line. That is a
+    reliable discriminator, and it means ``--trace`` just works on either.
+    """
+    head = path.read_text(encoding="utf-8").lstrip()
+    if head.startswith("{") and '"resourceSpans"' in head[:4096]:
+        return load_otlp_trace(path)
+    return load_trace(path)
+
+
+def _catalog(overlay: Path | None) -> Catalog:
+    """The shipped catalog, with the user's overlay consulted first (SPEC.md §4)."""
+    catalog = default_catalog()
+    if overlay is not None:
+        catalog = catalog.overlaid_with(load_catalog(overlay))
+    return catalog
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -44,7 +68,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace",
         type=Path,
-        help="captured trace (JSONL spans) to analyze",
+        help=(
+            "captured trace to analyze: flat JSONL spans, or a real OTLP/JSON "
+            "document (the format is detected from the file)"
+        ),
+    )
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        help=(
+            "user catalog overlay (YAML) — adds/overrides role entries. The "
+            "catalog is the only tunable layer; the engine is fixed."
+        ),
     )
     parser.add_argument(
         "--findings",
@@ -67,7 +102,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 0
 
-    events = label_events(load_trace(args.trace))
+    events = label_events(_load_events(args.trace), _catalog(args.catalog))
 
     # The engine is a generator: findings are written as they are found, so the
     # NDJSON is a true append-stream (DESIGN.md §6) rather than a document

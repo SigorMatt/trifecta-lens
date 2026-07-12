@@ -37,7 +37,6 @@ from trifecta_lens.findings import (
     Leg,
     PathEdge,
 )
-from trifecta_lens.labeling import note_for_role
 from trifecta_lens.model import Event, Value
 from trifecta_lens.roles import (
     SENSITIVE_DATA,
@@ -139,7 +138,12 @@ def _path_edges(
 
 
 def _leg(role: Role, event: Event) -> Leg:
-    return Leg(role=role, event=event.id, tool=event.tool, note=note_for_role(role))
+    # The note is read by ROLE, never by tool: the catalog (Stage 1) already
+    # attached its rationale to the event, so the engine cites the entry without
+    # ever learning what a "vault" is (DESIGN.md §5).
+    return Leg(
+        role=role, event=event.id, tool=event.tool, note=event.role_notes.get(role, "")
+    )
 
 
 def _accept(

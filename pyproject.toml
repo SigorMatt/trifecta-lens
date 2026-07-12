@@ -10,7 +10,10 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-dependencies = []
+# The catalog is a human-edited, comment-carrying data file, so it earns YAML
+# (DESIGN.md §8). That is the core's ONE runtime dependency: a dependency tree you
+# can read in one screen is itself a feature for a tool whose moat is auditability.
+dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 trifecta-lens = "trifecta_lens.cli:main"
@@ -20,6 +23,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pytest>=8",
+    "types-PyYAML",
 ]
 # demo/ only (the human-run captures). Isolated from the analyzer core, which
 # has zero runtime dependencies: `make check` uses `dev` and never installs this.

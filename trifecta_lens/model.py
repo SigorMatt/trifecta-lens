@@ -6,7 +6,7 @@ the catalog (SPEC.md §4) and ``values`` are extracted by taint matching
 (SPEC.md §6) — both downstream of ingest, so they default to empty there.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 # SPEC.md §6: a Value is a string extracted from span payloads.
@@ -25,6 +25,10 @@ class Event:
     outputs: dict[str, Any] | None
     roles: set[str]
     values: list[Value]
+    #: role -> the catalog entry's human rationale for assigning it (SPEC.md §4).
+    #: Carried on the event so a finding can cite WHY a role was assigned while
+    #: the engine stays tool-blind: it reads this keyed by role, never by tool.
+    role_notes: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-compatible dict; roles are sorted so output is deterministic."""
@@ -39,6 +43,7 @@ class Event:
             "outputs": self.outputs,
             "roles": sorted(self.roles),
             "values": list(self.values),
+            "role_notes": dict(sorted(self.role_notes.items())),
         }
 
     @classmethod
@@ -54,4 +59,5 @@ class Event:
             outputs=data["outputs"],
             roles=set(data["roles"]),
             values=list(data["values"]),
+            role_notes=dict(data.get("role_notes", {})),
         )

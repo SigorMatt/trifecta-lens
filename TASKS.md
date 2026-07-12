@@ -329,11 +329,26 @@ weakening the tier.
 
 ### Track C — the engine and the two new tiers *(gated on Checkpoint D)*
 
-- [ ] **2.8 Extract the catalog** (`SPEC.md` §4). The 1.4 `# TEMP` table becomes a
+- [x] **2.8 Extract the catalog** (`SPEC.md` §4). The 1.4 `# TEMP` table becomes a
   data file (`match → role + subtype + note`) plus a `--catalog` overlay. The
   catalog is the labeling function and **the only tunable layer** (`DESIGN.md` §4).
   *Done when the Phase-1 fixtures produce byte-identical findings with the labels
-  served from the catalog instead of the hardcoded table.*
+  served from the catalog instead of the hardcoded table.* — `trifecta_lens/catalog.py`
+  (Stage 1) + `catalogs/exfil_v1.yaml`. `match.tool` is a fully-anchored regex, so
+  one catalog covers **both** name spaces: the flat fixtures' bare names and a real
+  MCP stack's server-qualified `<server>__<tool>` (SPEC.md §2). Byte-identity is
+  **proven, not asserted**: `fixtures/golden/` holds the findings the *pre-catalog*
+  table emitted (generated before the swap), and `tests/test_catalog.py` asserts the
+  live pipeline reproduces them character-for-character; `make golden` regenerates
+  them when a change is *meant* to move the output. Notes now travel on
+  `Event.role_notes` (SPEC.md §2), so a finding cites the entry that assigned each
+  role while the engine stays tool-blind — it reads the note **by role**, never by
+  tool, and the D6 stage-seam gate still holds. **The carry-over is met:** the real
+  Checkpoint D OTLP trace now fires through the CLI (`--trace demo_mcp_trace.otlp.json`,
+  format auto-detected) with the **unmodified** engine — one `sensitive_to_exfil_sink`
+  at `notify__send`. Impact-sink entries (`filesystem__write_file`) ship in the
+  catalog and change no v1 finding: coverage is data, acceptance is the fixed
+  machine.
 - [ ] **2.9 Extract the engine** as the fixed property automaton over labeled
   graphs (`DESIGN.md` §§2–3, 5). Two-stage seam enforced: the engine sees labeled
   graphs only — never JSONL, OpenInference keys, or the inventory format. **Binding:**

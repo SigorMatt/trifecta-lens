@@ -30,7 +30,12 @@ Event:
   outputs:      dict | None    # tool result / model output (payload-level)
   roles:        set[str]       # role tags assigned by the catalog (§4)
   values:       list[Value]    # extracted taint-bearing values (§6)
+  role_notes:   dict[str,str]  # role -> the catalog entry's human rationale (§4)
 ```
+
+`role_notes` is how a finding cites *why* a role was assigned without the engine
+ever learning a tool name: the catalog (Stage 1) attaches the rationale to the
+event, and the engine reads it **keyed by role** (`DESIGN.md` §5).
 
 `inputs`/`outputs` require **payload-level** spans. If absent, realized
 detection is `UNAVAILABLE` for that event (see §7 degradation).
@@ -98,11 +103,29 @@ user-tunable layer of detection; the automaton itself is fixed (`DESIGN.md` §4)
 
 ```
 CatalogEntry:
-  match:   {tool: str|regex} | {tag: str}    # how to recognize
+  id:      str                               # stable entry id, cited in output
+  match:   {tool: str|regex}                 # how to recognize
   role:    untrusted_source | sensitive_data | sink
   subtype: exfil | impact | null             # for sinks
   note:    str                               # human rationale, shown in output
 ```
+
+**Concretely (v1).** The catalog is a YAML file (`trifecta_lens/catalogs/exfil_v1.yaml`,
+loaded by `trifecta_lens/catalog.py` — Stage 1). `match.tool` is a **regex,
+fully anchored** (`re.fullmatch`), evaluated against the event's `tool` name — which
+is server-qualified under MCP (§2), so an entry may match either a bare name
+(`vault`) or a qualified one (`filesystem__read_text_file`). A tool matching several
+entries receives the **union** of their roles; the note cited for a role is the
+first matching entry's, in file order, so labeling is deterministic. `{tag: ...}`
+matching is **not implemented in v1** — the captured inventory carries no tags.
+
+A `--catalog user.yaml` **overlay** is the user's extension point: its entries are
+consulted **before** the defaults, so it can add roles the defaults miss and
+override the note cited for one. It cannot remove a default entry in v1.
+
+The catalog is the **only** tunable layer. Adding coverage is adding an entry —
+never a branch in the engine (`CLAUDE.md` invariant 2, enforced by the stage-seam
+gate).
 
 Default v1 entries (extend via user catalog, see §7):
 

@@ -47,7 +47,8 @@ _TOOL_BRANCH_OPS = (ast.Eq, ast.NotEq, ast.In, ast.NotIn)
 STAGE_1_MODULES = frozenset(
     {
         "loader.py",  # raw spans -> Events
-        "labeling.py",  # the labeling function (catalog stand-in, tool-keyed BY DESIGN)
+        "catalog.py",  # the catalog: the labeling rules, tool-name-keyed BY DESIGN
+        "labeling.py",  # the labeling function (applies the catalog to events)
         "inventory.py",  # inventory JSON -> topology (front-end; tool-name-keyed)
     }
 )
@@ -274,20 +275,16 @@ def test_gate_catches_a_tool_table_planted_in_the_engine() -> None:
 
 
 def test_gate_permits_the_legitimate_table_in_stage_1() -> None:
-    """labeling.py IS a tool-keyed table, by design. The gate must not flag it.
+    """The catalog IS tool-name-keyed, by design. The gate must not flag it.
 
-    This is the asymmetry the old gate could not express: the same table is
-    correct in Stage 1 and forbidden in Stage 2.
+    This is the asymmetry the old gate could not express: the same tool-keyed
+    lookup is correct in Stage 1 and forbidden in Stage 2. Matching tool names is
+    the labeling function's entire job (task 2.8 moved the rules into a data file,
+    which does not change the principle — it is what the principle was for).
     """
-    trees = _core_trees()
-    labeling = next(t for p, t in trees.items() if Path(p).name == "labeling.py")
-
-    # It really does look tools up -- that is its job.
-    assert tool_lookups_in(labeling), "labeling.py should be tool-keyed"
-
-    # And it is Stage 1, so the gate lets it be.
-    assert "labeling.py" in STAGE_1_MODULES
-    assert "labeling.py" not in STAGE_2_MODULES
+    for module in ("catalog.py", "labeling.py"):
+        assert module in STAGE_1_MODULES
+        assert module not in STAGE_2_MODULES
 
 
 def test_architecture_gate_detects_per_tool_branches() -> None:

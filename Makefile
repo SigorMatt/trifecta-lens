@@ -2,7 +2,7 @@
 # before it counts as done (ENVIRONMENT.md): it wraps the exact toolchain
 # commands plus the Phase 0 done-whens as runnable checks.
 
-.PHONY: check demo demo-live demo-direct
+.PHONY: check golden demo demo-live demo-direct
 
 check:
 	uv run ruff check .
@@ -10,6 +10,13 @@ check:
 	uv run pytest
 	uv run trifecta-lens --version
 	uv run python -c "from trifecta_lens.loader import load_trace; n = len(load_trace('fixtures/worked_example.jsonl')); assert n == 4, f'expected 4 events, got {n}'"
+
+# Regenerate the findings regression anchor (fixtures/golden/). Run this ONLY
+# when a change is MEANT to alter the findings output, and commit the result in
+# the same change so the diff is reviewable. `make check` fails if the live
+# pipeline and the committed bytes disagree — that failure is the point.
+golden:
+	uv run python -m tests.regenerate_golden
 
 # Replay-only (task 1.2 done-when: "make demo replays it with no model call").
 # Replays the frozen anchor through the analyzer: prints the observed spans, then
