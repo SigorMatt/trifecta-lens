@@ -34,6 +34,32 @@ no-realized-finding cases; demo_realized anchors the positive.
 
 ---
 
+Checkpoint D — REAL-MCP captures (Phase 2, tasks 2.4/2.5). Two artifacts from one
+system, both captured, never authored. Full detail in the sibling .provenance.md
+files and demo/CAPTURE_LOG.md.
+
+demo_mcp_trace.otlp.json
+  capture: Llama-3.3-70B via HF->Groq, 2026-07-12, DIRECT-INSTRUCTION over REAL
+           MCP servers (filesystem + our inert notify sink). REAL OTLP/JSON.
+  shape: agent.run -> filesystem__read_text_file -> notify__send; the fake secret
+         reaches the sink VERBATIM. Server-qualified <server>__<tool> tool names.
+  role: the real-MCP realized trace; the trace half of Checkpoint D. The realized
+        detector is expected to fire once the OTLP front-end (task 2.7) lands.
+  note: the first attempt placeholdered the body; the direct instruction was
+        sharpened to require the literal value and the committed run threaded it
+        verbatim (see .provenance.md — disclosed, not hidden).
+
+inventory.json
+  capture: demo.capture_inventory, 2026-07-12, NO model — tools/list recorded
+           verbatim from real running servers.
+  shape: 2 contexts; triage (fetch+filesystem) is a STRICT subset of assistant
+         (fetch+filesystem+notify), differing by exactly the notify__send sink.
+  role: the inventory half of Checkpoint D; establishes reachable ⊊ posture on a
+        REAL inventory (D1 non-vacuity; D7 fallback not needed). Its tool names
+        are the superset the trace's names join against (the composability join).
+
+---
+
 HAND-AUTHORED fixtures (NOT captures — never present these as evidence of a real
 run). FIXTURES.md "two kinds of fixture", category 1: format/unit fixtures.
 

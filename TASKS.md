@@ -270,11 +270,23 @@ weakening the tier.
   prose *why* it is a subset (no outbound sink) — the non-vacuity auditability D7
   wants. Needs **no model**. The actual captured inventory artifact lands at
   Checkpoint D.
-- [ ] 🛑 **CHECKPOINT D — human capture (halt).** A human runs 2.4 + 2.5 and
+- [x] 🛑 **CHECKPOINT D — human capture (halt).** A human runs 2.4 + 2.5 and
   commits: the **inventory fixture** (≥2 contexts), the **real OTLP trace fixture**,
   and provenance for both. **The build agent must never fabricate either artifact**
   — same line as Checkpoint B. *Exit: both fixtures committed, with provenance
-  stating exactly what was captured and what it may be used to claim.*
+  stating exactly what was captured and what it may be used to claim.* — Run in
+  this session under the operator's direction with the operator-provided
+  `HF_TOKEN` (real captures, never authored). Committed:
+  `fixtures/inventory.json` (2 contexts; triage ⊊ assistant by exactly the
+  `notify__send` sink ⇒ reachable ⊊ posture on a REAL inventory, D1 non-vacuity
+  met, D7 fallback not needed) and `fixtures/demo_mcp_trace.otlp.json` (real
+  OTLP/JSON; Llama-3.3-70B direct-instruction; secret reaches `notify__send`
+  VERBATIM), each with a `.provenance.md`; capture recorded in
+  `demo/CAPTURE_LOG.md`. The first trace attempt placeholdered the body — the
+  direct instruction was sharpened to require the literal value (disclosed in
+  provenance), and the sharpened-prompt run was committed as-is. Composability
+  join (trace tool names ⊆ inventory tool names) holds; it becomes an executable
+  assertion in 2.6.
 - [ ] **2.6 Inventory loader + the composability join** (D2, D8). Stage 1
   front-end: inventory JSON → labeled topology values. **Spec-first:** correct
   `SPEC.md` §7 — the manifest does **not** contain tools (D2/F1). *Done when the
