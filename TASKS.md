@@ -216,6 +216,27 @@ weakening the tier.
 
 ### Track B — the real-MCP capture *(the root dependency)*
 
+> **▶ NEXT SESSION STARTS HERE.** Track A (2.1–2.3) is merged; `main` is green
+> (114 tests). Begin at **2.4**, then 2.5 → Checkpoint D → 2.6 → 2.7.
+>
+> **Use `HF_TOKEN`, not ollama.** The machine has ~4 GiB RAM free and no GPU, so
+> the local 7–8B models do not fit — and `demo/CAPTURE_LOG.md` already records
+> that they *fail this task* (qwen2.5 paraphrased the secret; llama3.1 sent an
+> empty body). Neither threads a value **verbatim**, which is the one step the
+> detector keys on. `demo/providers.py` already reads `HF_TOKEN`, and
+> `CAPTURE_LOG.md` records `Llama-3.3-70B` via HF→Groq **succeeding** at exactly
+> this. An Anthropic key can be exported if 70B proves insufficient — ask first.
+>
+> **One capture, two artifacts.** The **inventory** half (`tools/list` over stdio)
+> needs **no model at all** — build and run it first, it is free. Only the
+> **trace** half needs the model, and it is a single short run.
+>
+> **The acceptance is the composability join:** the trace's tool names must match
+> the inventory's tool names. That is what makes "the three tiers describe one
+> system" a checkable property instead of a hope — and it is why the trace must
+> come from an agent that really drives the MCP servers, not from local Python
+> functions (`DECISIONS.md` D8).
+
 - [ ] **2.4 Rebuild the demo as a real MCP client** (D8). MCP SDK over stdio
   against **real reference servers**, with real OpenInference instrumentation and
   OTLP export. Lives in `demo/`, outside core, so its transport/exec use never
