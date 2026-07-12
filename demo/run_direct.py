@@ -1,30 +1,33 @@
-"""demo/run_live.py — entrypoint for ``make demo-live`` (human-run, task 1.2).
+"""demo/run_direct.py — entrypoint for ``make demo-direct`` (human-run).
 
-This is the single credentialed step in the project. The autonomous build agent
-runs with no key and no local model and must not run this to completion
-(AGENT.md, ENVIRONMENT.md). Run it, review the spans it writes, and commit them
-as ``fixtures/demo_exfil.jsonl`` — that recorded trace is captured here, never
-hand-authored (FIXTURES.md, CLAUDE.md).
+The direct-instruction counterpart to :mod:`demo.run_live`. It drives
+:func:`demo.agent.run_direct`: a SEPARATE, benign scenario in which the user
+directly asks the agent to read the integration key and register it at the
+status endpoint. There is no poisoned issue and no injection anywhere — the
+instruction is the user's own; it simply walks the vault -> webhook data flow.
+The spans it writes are the *realized-positive* capture for the detector
+fixtures (tasks 1.6/1.9): a sensitive value observed reaching a sink. This is
+flow, not an attack (CLAUDE.md invariant 4) — never label it an injection.
+
+Like ``make demo-live`` this is the credentialed step; the autonomous build
+agent runs with no key and must not run it to completion (AGENT.md). Run it,
+review the spans, and commit them as ``fixtures/demo_realized.jsonl``.
 
 ``DEMO_ENDPOINT`` picks the transport (default ``anthropic``):
 
     # Anthropic Messages API — needs a key in your own environment:
-    ANTHROPIC_API_KEY=... make demo-live
+    ANTHROPIC_API_KEY=... make demo-direct
 
     # Local open model via an Ollama OpenAI-compatible endpoint — no key,
     # but set the model id and (optionally) the base URL:
-    DEMO_ENDPOINT=ollama DEMO_MODEL=mistral:7b make demo-live
-    DEMO_ENDPOINT=ollama DEMO_MODEL=qwen2.5:7b \\
-        DEMO_OLLAMA_BASE_URL=http://localhost:11434/v1 make demo-live
+    DEMO_ENDPOINT=ollama DEMO_MODEL=mistral:7b make demo-direct
 
     # Hosted open model via the Hugging Face Inference Providers router —
     # needs an HF token; DEMO_MODEL defaults to Llama-3.3-70B-Instruct:
-    DEMO_ENDPOINT=hf HF_TOKEN=hf_... make demo-live
-    DEMO_ENDPOINT=hf HF_TOKEN=hf_... \\
-        DEMO_MODEL=meta-llama/Llama-3.3-70B-Instruct:sambanova make demo-live
+    DEMO_ENDPOINT=hf HF_TOKEN=hf_... make demo-direct
 
     # or, to write elsewhere while iterating:
-    ANTHROPIC_API_KEY=... uv run --extra demo python -m demo.run_live OUT.jsonl
+    ANTHROPIC_API_KEY=... uv run --extra demo python -m demo.run_direct OUT.jsonl
 """
 
 from __future__ import annotations
@@ -32,8 +35,8 @@ from __future__ import annotations
 import os
 import sys
 
-# Default output is the file the human reviews and commits for task 1.2.
-DEFAULT_OUTPUT = "fixtures/demo_exfil.jsonl"
+# Default output is the realized-positive trace the human reviews and commits.
+DEFAULT_OUTPUT = "fixtures/demo_realized.jsonl"
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 ENDPOINT_ENV = "DEMO_ENDPOINT"
 MODEL_ENV = "DEMO_MODEL"
@@ -59,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
                 "  The anthropic endpoint makes real model calls and needs a "
                 "key in your own environment.\n"
                 f"  Set it and re-run, e.g.:  {API_KEY_ENV}=sk-... "
-                "make demo-live\n"
+                "make demo-direct\n"
                 "  (The build agent runs with no key and does not capture the "
                 "trace; you do — see demo/README.md.)",
                 file=sys.stderr,
@@ -73,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"ERROR: {MODEL_ENV} is not set.\n"
                 "  The ollama endpoint has no default model; set the local "
                 "model id, e.g.:\n"
-                f"  {ENDPOINT_ENV}=ollama {MODEL_ENV}=mistral:7b make demo-live",
+                f"  {ENDPOINT_ENV}=ollama {MODEL_ENV}=mistral:7b make demo-direct",
                 file=sys.stderr,
             )
             return 2
@@ -89,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
                 "  The hf endpoint calls the Hugging Face router and needs a "
                 "token in your own environment.\n"
                 f"  Set it and re-run, e.g.:  {ENDPOINT_ENV}=hf {HF_TOKEN_ENV}"
-                "=hf_... make demo-live\n"
+                "=hf_... make demo-direct\n"
                 "  (The build agent runs with no token and does not capture "
                 "the trace; you do — see demo/README.md.)",
                 file=sys.stderr,
@@ -108,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         OLLAMA_BASE_URL_ENV, agent.DEFAULT_OLLAMA_BASE_URL
     )
     hf_base_url = os.environ.get(HF_BASE_URL_ENV, agent.DEFAULT_HF_BASE_URL)
-    result = agent.run(
+    result = agent.run_direct(
         output_path=output_path,
         endpoint=endpoint,
         model=model,
