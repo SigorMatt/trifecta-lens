@@ -223,7 +223,13 @@ defined in `FIXTURES.md`.
   array; each context is an id, a human-written provenance note, and its
   **effective exposed tool set** (the `tools/list` entries actually reachable by
   that agent context). Posture reads the union of contexts; reachable reads each
-  context.
+  context. Each tool entry records the verbatim `tools/list` object under `tool`
+  plus the `server` that exposed it. Tool **identity is server-qualified** —
+  `<server>__<tool>` — the same name space the trace's `tool.name` carries, so
+  the two artifacts join on shared identity (the **composability join**: the
+  trace's tool names are a subset of the inventory's; `DECISIONS.md` D8). The
+  inventory front-end is `trifecta_lens/inventory.py` (Stage 1); qualification is
+  a front-end concern and the engine never sees the separator (`DESIGN.md` §5).
 
   > **The MCP "manifest" does not contain tools.** An earlier draft of this spec
   > said the manifest was "MCP server/tool config (the same file the host loads)."

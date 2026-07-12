@@ -287,12 +287,20 @@ weakening the tier.
   provenance), and the sharpened-prompt run was committed as-is. Composability
   join (trace tool names ⊆ inventory tool names) holds; it becomes an executable
   assertion in 2.6.
-- [ ] **2.6 Inventory loader + the composability join** (D2, D8). Stage 1
+- [x] **2.6 Inventory loader + the composability join** (D2, D8). Stage 1
   front-end: inventory JSON → labeled topology values. **Spec-first:** correct
   `SPEC.md` §7 — the manifest does **not** contain tools (D2/F1). *Done when the
   captured inventory loads, **and** a fixture assertion proves the trace's tool
   names match the inventory's tool names — the join that makes "the three tiers
-  describe one system" checkable rather than hoped-for.*
+  describe one system" checkable rather than hoped-for.* — `trifecta_lens/inventory.py`
+  loads the captured `contexts[]` into `Inventory`/`Context`/`ToolRef` values with
+  server-qualified (`<server>__<tool>`) identity and a `posture_tools()` union; no
+  role labeling yet (that is the catalog, 2.8). `tests/test_inventory.py` loads the
+  **real** Checkpoint D inventory and asserts (a) `triage ⊊ posture`, differing by
+  exactly `notify__send` (non-vacuity, read off the artifact), and (b) the
+  **composability join** — the real trace's tool names ⊆ the inventory's. SPEC §7
+  updated with the qualified-identity join; the D6 stage-seam gate now classifies
+  `inventory.py` as Stage 1.
 - [ ] **2.7 Real OTLP / OpenInference front-end** (D9). A new Stage 1 adapter —
   never an engine change (`FIXTURES.md`). Built against the **real captured trace**,
   not an imagined one. Handles nested OTLP attribute arrays, MCP tool

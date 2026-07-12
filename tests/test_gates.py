@@ -48,6 +48,7 @@ STAGE_1_MODULES = frozenset(
     {
         "loader.py",  # raw spans -> Events
         "labeling.py",  # the labeling function (catalog stand-in, tool-keyed BY DESIGN)
+        "inventory.py",  # inventory JSON -> topology (front-end; tool-name-keyed)
     }
 )
 STAGE_2_MODULES = frozenset(
