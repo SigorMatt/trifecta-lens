@@ -349,11 +349,27 @@ weakening the tier.
   at `notify__send`. Impact-sink entries (`filesystem__write_file`) ship in the
   catalog and change no v1 finding: coverage is data, acceptance is the fixed
   machine.
-- [ ] **2.9 Extract the engine** as the fixed property automaton over labeled
+- [x] **2.9 Extract the engine** as the fixed property automaton over labeled
   graphs (`DESIGN.md` §§2–3, 5). Two-stage seam enforced: the engine sees labeled
   graphs only — never JSONL, OpenInference keys, or the inventory format. **Binding:**
   incremental fold; NDJSON append-stream (`DESIGN.md` §6). *Done when all Phase-1
-  findings are unchanged and the engine module imports no front-end.*
+  findings are unchanged and the engine module imports no front-end.* — The
+  acceptance predicate is now **one function**, `engine.satisfied_families(legs)`,
+  and `FAMILIES` (strongest-first) is the whole of the machine's acceptance
+  condition. All three tiers call it: realized hands it a trace path's ancestry,
+  reachable one context's exposed roles, posture the union — so
+  `realized ⊆ reachable ⊆ posture` becomes structural (the tiers differ *only* in
+  the leg set they pass), rather than resting on the report text agreeing with
+  itself. The seam grew its second half: `model.LabeledTool/LabeledContext/LabeledStack`
+  (SPEC.md §2.1), built by `labeling.label_inventory` from the captured inventory
+  with **the same catalog** that labels the trace — which is precisely why a
+  realized finding at a sink is guaranteed a reachable/posture counterpart at that
+  sink. `posture_context()` collapses the stack to one bag of tools so posture and
+  reachable are the *same code path* over a weaker input, not two detectors kept in
+  agreement by hand. The done-when is enforced, not promised: a new gate
+  (`test_stage_2_imports_no_front_end`) fails if any Stage-2 module imports a Stage-1
+  one — **verified by planting `from trifecta_lens.loader import load_trace` in
+  `engine.py` and watching it fire**. Findings byte-identical (`fixtures/golden/`).
 - [ ] **2.10 Posture tier** (D1). Roles present in the **union** of the inventory's
   contexts; no edges, no guard. *Done when the captured inventory yields posture
   findings, and `realized ⊆ posture` is an executable property test.*

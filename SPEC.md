@@ -37,6 +37,29 @@ Event:
 ever learning a tool name: the catalog (Stage 1) attaches the rationale to the
 event, and the engine reads it **keyed by role** (`DESIGN.md` §5).
 
+### 2.1 The topology values (the capability tiers' input)
+
+Realized projects over the Event stream. Posture and reachable project over the
+**captured inventory** (§7), labeled by the same catalog (§4). That gives the
+second of `DESIGN.md` §1's two graphs:
+
+```
+LabeledTool:    name: str            # server-qualified, <server>__<tool>
+                roles: set[str]      # assigned by the catalog
+                role_notes: dict[str,str]
+
+LabeledContext: id: str              # one agent context
+                provenance: str      # the human-written capture note
+                tools: [LabeledTool] # its EFFECTIVE exposed tool set
+
+LabeledStack:   contexts: [LabeledContext]
+```
+
+These are the **only** things the engine sees of an inventory. It never sees the
+inventory file's shape, the `tools/list` entries, or the `<server>__<tool>`
+separator — those are Stage 1's business (`DESIGN.md` §5). Reachable runs per
+`LabeledContext`; posture runs over the union of their tools.
+
 `inputs`/`outputs` require **payload-level** spans. If absent, realized
 detection is `UNAVAILABLE` for that event (see §7 degradation).
 

@@ -223,6 +223,42 @@ def test_honesty_gate_detects_banned_tokens() -> None:
     assert banned_tokens_in("because of the cause") == []
 
 
+def _core_imports(tree: ast.AST) -> set[str]:
+    """The `trifecta_lens.<module>` names a module imports."""
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            "trifecta_lens"
+        ):
+            imported.add((node.module or "").split(".")[-1] + ".py")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("trifecta_lens."):
+                    imported.add(alias.name.split(".")[-1] + ".py")
+    return imported
+
+
+def test_stage_2_imports_no_front_end() -> None:
+    """Task 2.9's done-when, as a structural check rather than a promise.
+
+    The engine must see labeled values ONLY — never JSONL, never OpenInference
+    attribute keys, never the inventory format (DESIGN.md §5). The cheapest way to
+    guarantee that is at the import graph: if the engine cannot *reach* a front-end,
+    it cannot learn one's shape, and no amount of later editing can quietly
+    reintroduce the coupling without failing here.
+    """
+    offenders: dict[str, set[str]] = {}
+    for path, tree in _core_trees().items():
+        if Path(path).name not in STAGE_2_MODULES:
+            continue
+        if leaked := _core_imports(tree) & STAGE_1_MODULES:
+            offenders[path] = leaked
+    assert not offenders, (
+        f"Stage-2 module imports a Stage-1 front-end: {offenders}. "
+        "The engine sees labeled graphs, never a format (DESIGN.md §5)."
+    )
+
+
 def test_stage_2_never_looks_up_a_tool() -> None:
     """The engine sees ROLES, never tool names (DECISIONS.md D6, DESIGN.md §5)."""
     offenders: dict[str, list[int]] = {}

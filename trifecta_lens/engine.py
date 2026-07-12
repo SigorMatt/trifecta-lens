@@ -53,6 +53,64 @@ FAMILY_TWO_LEG: Final[str] = "sensitive_to_exfil_sink"
 #: The exfil legs, in the order a finding reports them.
 _EXFIL_LEGS: Final[tuple[Role, ...]] = (UNTRUSTED_SOURCE, SENSITIVE_DATA, SINK_EXFIL)
 
+
+@dataclass(frozen=True)
+class Family:
+    """One acceptance predicate of the fixed automaton (SPEC.md §3, DESIGN.md §2)."""
+
+    id: str
+    #: The legs that must all be present for this family to accept.
+    required: frozenset[Role]
+    #: The sink role that terminates its path.
+    sink: Role
+
+
+#: **The acceptance predicate of the machine, and the whole of it.** Ordered
+#: STRONGEST FIRST — that ordering is what "report at the strongest family that
+#: accepts" means, and it is why a two-leg finding can never be dressed up as a
+#: trifecta.
+#:
+#: The two families are not two machines. Two-leg is the trifecta's predicate with
+#: one conjunct dropped (`SPEC.md` §3.1): same states, same lattice, same guard.
+#: Because `{SRC,SEN,SINK} ⊃ {SEN,SINK}`, every trifecta-accepting run also
+#: satisfies two-leg — so the families form a lattice too, and `trifecta ⊆ two-leg`
+#: holds at every tier (`DESIGN.md` §3).
+#:
+#: The action-hijack family (`sink:impact`) is deliberately ABSENT: it is
+#: fast-follow (SPEC.md §3, ROADMAP Phase 4). The catalog already labels impact
+#: sinks; no v1 family accepts on them. Adding the family later is adding a row
+#: here — the states and the guard do not move.
+FAMILIES: Final[tuple[Family, ...]] = (
+    Family(
+        id=FAMILY_TRIFECTA,
+        required=frozenset({UNTRUSTED_SOURCE, SENSITIVE_DATA, SINK_EXFIL}),
+        sink=SINK_EXFIL,
+    ),
+    Family(
+        id=FAMILY_TWO_LEG,
+        required=frozenset({SENSITIVE_DATA, SINK_EXFIL}),
+        sink=SINK_EXFIL,
+    ),
+)
+
+
+def satisfied_families(legs: frozenset[Role]) -> tuple[Family, ...]:
+    """Every family whose legs are all present in ``legs``, strongest first.
+
+    This one function is the automaton's acceptance condition, and **all three
+    tiers call it** — realized over a trace path's ancestry, reachable over one
+    context's exposed roles, posture over the union. That is what makes
+    ``realized ⊆ reachable ⊆ posture`` structural (`DESIGN.md` §3): the tiers differ
+    only in the leg set they hand this function, and each tier's leg set is a
+    superset of the tighter tier's. Nothing about containment rests on the report
+    text agreeing with itself.
+
+    Reporting takes the **first** (strongest); the full tuple is what the
+    containment property is checked against, since a run that accepts the trifecta
+    also accepts two-leg but is only *reported* once (SPEC.md §5).
+    """
+    return tuple(family for family in FAMILIES if family.required <= legs)
+
 SUMMARY: Final[str] = "tainted data observed reaching {sink}"
 
 SCOPE: Final[str] = (
@@ -179,7 +237,20 @@ def _accept(
     sensitive_event = seen[origin.origin]
 
     source_event = legs_seen.get(UNTRUSTED_SOURCE)
-    family = FAMILY_TRIFECTA if source_event is not None else FAMILY_TWO_LEG
+
+    # The acceptance predicate — the SAME one the capability tiers run. The legs
+    # on this path are the sensitive origin, the sink we are standing on, and the
+    # untrusted source if the ancestry carried one. Report the strongest family
+    # that accepts; there is always at least one, since `sensitive` is non-empty
+    # and this event is a sink.
+    legs_present = frozenset(
+        {SENSITIVE_DATA, SINK_EXFIL}
+        | ({UNTRUSTED_SOURCE} if source_event is not None else set())
+    )
+    accepted = satisfied_families(legs_present)
+    if not accepted:
+        return None
+    family = accepted[0].id
 
     path_events = [sensitive_event, sink]
     if source_event is not None:
