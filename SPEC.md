@@ -30,12 +30,14 @@ Event:
   outputs:      dict | None    # tool result / model output (payload-level)
   roles:        set[str]       # role tags assigned by the catalog (§4)
   values:       list[Value]    # extracted taint-bearing values (§6)
-  role_notes:   dict[str,str]  # role -> the catalog entry's human rationale (§4)
+  role_labels:  dict[str, RoleLabel]   # role -> {entry, note} that assigned it (§4)
 ```
 
-`role_notes` is how a finding cites *why* a role was assigned without the engine
-ever learning a tool name: the catalog (Stage 1) attaches the rationale to the
-event, and the engine reads it **keyed by role** (`DESIGN.md` §5).
+`role_labels` is how a finding cites *why* a role was assigned — and *which entry
+to edit* — without the engine ever learning a tool name: the catalog (Stage 1)
+attaches the citation to the event, and the engine reads it **keyed by role**
+(`DESIGN.md` §5). Both halves matter: the `note` is what a human reads to judge the
+call, the `entry` id is what they change to correct it.
 
 ### 2.1 The topology values (the capability tiers' input)
 
@@ -150,20 +152,37 @@ The catalog is the **only** tunable layer. Adding coverage is adding an entry �
 never a branch in the engine (`CLAUDE.md` invariant 2, enforced by the stage-seam
 gate).
 
-Default v1 entries (extend via user catalog, see §7):
+**What v1 actually ships** (`catalogs/exfil_v1.yaml` is the source of truth; this
+list is its summary, and a test keeps the two honest):
 
-- `untrusted_source`: web/url fetch; inbound email; issue/PR/comment text;
-  RAG / retrieved-document reads; shared-file reads; another agent's output.
-- `sensitive_data`: secret/credential reads; PII; source-code reads; internal
-  doc / private path reads; DB row reads; agent memory reads.
-- `sink:exfil`: `http_post` / outbound request; external email send;
-  image-render-by-URL; DNS; write to a shared/public location.
-- `sink:impact` (catalog present, used by action-hijack in fast-follow):
-  `shell.exec`; destructive file/db writes; transfers; PR merge.
+- `untrusted_source`: web/URL fetch (incl. the MCP `fetch` server); issue / PR /
+  comment text; inbound email & messages.
+- `sensitive_data`: secret/credential reads; local file **content** reads (the MCP
+  `filesystem` server's `read_*` tools); agent memory reads.
+- `sink:exfil`: outbound HTTP request; email/chat send; **write to a shared/public
+  location** (a comment on a public issue publishes the payload just as surely as a
+  POST does); the demo `notify` sink.
+- `sink:impact` (catalog present; **no v1 family accepts on it** — action-hijack is
+  fast-follow, §3): `shell.exec`; destructive file writes; PR merge.
+
+**Deliberately NOT in v1, and why.** RAG / retrieved-document reads are a real
+untrusted source, but real tools spell them `search`, `query`, `retrieve` — names
+shared with a dozen harmless things, including `filesystem__search_files`, which
+returns *names*, not content. No captured trace yet carries a RAG read, and a
+pattern invented for one would be a guess. Likewise directory listings and file
+metadata are **not** `sensitive_data`: they return names, and labeling them would
+make every `ls` a leg of an exfil finding. Coverage lands when a real trace
+justifies it.
+
+Coverage is deliberately conservative, because **a wrong label is worse than a
+missing one**: a missing label loses a finding, while a wrong one manufactures a
+confident finding about a role nobody assigned — and this tool's only asset is that
+it says nothing it cannot support.
 
 Labeling is heuristic and *will* be imperfect; that is acceptable and is the
-contributor flywheel. Every finding cites which catalog entry assigned each role
-so a user can see and correct it.
+contributor flywheel. Every finding cites the **catalog entry id** that assigned
+each role, alongside the rationale — so a user can both judge the call and know
+exactly what to edit or override. See `CONTRIBUTING.md`.
 
 ## 5. Tier definitions and algorithms
 

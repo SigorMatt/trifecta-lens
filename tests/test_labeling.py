@@ -43,20 +43,25 @@ def test_no_span_in_the_anchor_is_labeled_untrusted_source() -> None:
 def test_unmapped_tools_get_no_roles() -> None:
     """Labeling is a lookup, not a guess: unknown tools stay unlabeled."""
     catalog = default_catalog()
-    assert roles_for_tool("list_issues", catalog) == set()
+    assert roles_for_tool("acme__frobnicate", catalog) == set()
     assert roles_for_tool(None, catalog) == set()
 
 
-def test_each_role_carries_the_catalog_rationale_that_assigned_it() -> None:
-    """A finding must be able to cite WHY (SPEC.md §4) — so the event carries it."""
+def test_each_role_carries_the_catalog_ENTRY_that_assigned_it() -> None:
+    """A finding must cite WHY and WHERE TO FIX IT (SPEC.md §4).
+
+    The event carries both, so the engine can cite the entry without ever learning
+    a tool name.
+    """
     events = label_events(load_trace(ANCHOR))
+
     vault = next(e for e in events if e.id == "s1")
-    assert vault.role_notes[SENSITIVE_DATA] == (
-        "reads a credential from the secret store"
-    )
+    label = vault.role_labels[SENSITIVE_DATA]
+    assert label.note == "reads a credential from the secret store"
+    assert label.entry == "vault.secret"  # the id the user edits to change the call
 
     unlabeled = next(e for e in events if e.id == "s0")
-    assert unlabeled.role_notes == {}
+    assert unlabeled.role_labels == {}
 
 
 def test_labeling_leaves_payloads_untouched() -> None:

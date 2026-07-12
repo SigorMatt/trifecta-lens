@@ -24,6 +24,7 @@ from typing import Any, Final
 
 import yaml
 
+from trifecta_lens.model import RoleLabel
 from trifecta_lens.roles import Role, role_symbol
 
 #: The shipped default catalog (SPEC.md §4).
@@ -61,18 +62,18 @@ class Catalog:
 
     entries: tuple[CatalogEntry, ...]
 
-    def label(self, tool: str | None) -> dict[Role, str]:
-        """Roles for ``tool``, each mapped to the note that justified it.
+    def label(self, tool: str | None) -> dict[Role, RoleLabel]:
+        """Roles for ``tool``, each mapped to the entry that assigned it.
 
-        The union over matching entries; first match wins the note. An unmatched
+        The union over matching entries; first match wins the citation. An unmatched
         tool gets nothing — silence, not a guess.
         """
         if tool is None:
             return {}
-        labels: dict[Role, str] = {}
+        labels: dict[Role, RoleLabel] = {}
         for entry in self.entries:
             if entry.matches(tool) and entry.role not in labels:
-                labels[entry.role] = entry.note
+                labels[entry.role] = RoleLabel(entry=entry.id, note=entry.note)
         return labels
 
     def overlaid_with(self, overlay: Catalog) -> Catalog:

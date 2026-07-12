@@ -53,15 +53,31 @@ def test_benign_no_flow_is_silent_because_the_guard_failed() -> None:
     assert list(detect_realized(events)) == []
 
 
-def test_triage_fixtures_are_silent_because_no_sensitive_value_exists() -> None:
+def test_triage_fixtures_are_silent_because_the_SENSITIVE_LEG_is_absent() -> None:
     """The two captured triage runs never call the vault, so nothing is tainted.
 
     triage_refused: the model was given a poisoned issue and declined the
     injected vault/POST step. triage_benign_control: no injection at all.
+
+    Task 2.13 STRENGTHENED this case. Under the Phase-1 table these fixtures called
+    no labeled tool at all, so their silence proved little — an unlabeled stack is
+    silent about everything. The default catalog now covers what they really do:
+    they read ISSUE TEXT (an untrusted_source — third parties write it) and they
+    POST A COMMENT (a sink:exfil — a public issue thread is a shared location).
+
+    So they now carry two of the three legs, and they are *still* silent. That
+    silence is now load-bearing: it can only come from the machine requiring a
+    SENSITIVE leg before it will call anything exfil (SPEC.md §3). A source reaching
+    a sink with nothing sensitive in the path is not an exfil finding at any
+    strength — it is the action-hijack family's territory, and v1 does not ship it.
     """
     for name in ("triage_refused_sonnet5.jsonl", "triage_benign_control.jsonl"):
         events = label_events(load_trace(FIXTURES / name))
-        assert not any(e.roles for e in events), name
+
+        roles = {r for e in events for r in e.roles}
+        assert roles == {"untrusted_source", "sink:exfil"}, name
+        assert "sensitive_data" not in roles, name
+
         assert list(detect_realized(events)) == [], name
 
 

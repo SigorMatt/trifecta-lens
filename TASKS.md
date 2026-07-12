@@ -445,10 +445,34 @@ weakening the tier.
   arithmetically (no rasterizer in CI) because the honesty disclaimers sit at the
   bottom and are the first thing a too-small canvas would silently truncate. The
   0.8 honesty gate now renders and scans **all three tiers plus the SVG**.
-- [ ] **2.13 Default v1 exfil catalog + docs.** Catalog entries for the servers the
+- [x] **2.13 Default v1 exfil catalog + docs.** Catalog entries for the servers the
   capture actually used, plus the source/sink lists in `SPEC.md` §4.
   `CONTRIBUTING.md` frames "add a catalog entry" as the contribution path.
-  *Done when a stranger's server can be covered by editing data, not code.*
+  *Done when a stranger's server can be covered by editing data, not code.* —
+  The default catalog now carries `SPEC.md` §4's source/sink lists: issue/PR/comment
+  text and inbound mail (untrusted_source), secret and memory reads (sensitive_data),
+  outbound HTTP, message send and **writes to a shared/public location**
+  (sink:exfil — a comment on a public issue publishes the payload as surely as a POST
+  does), plus shell/merge impact sinks that **no v1 family accepts on**.
+  **Done-when, executable:** `test_A_STRANGERS_SERVER_IS_COVERED_BY_EDITING_DATA_NOT_CODE`
+  takes a stack the project has never heard of (`crm__read_customer_rows`,
+  `wiki__publish_page`), shows it is invisible under the shipped catalog, and makes
+  the **unmodified** engine detect the full trifecta on it with one overlay file —
+  verified by hand through the real CLI too. **SPEC §4 was overclaiming** and is
+  corrected to what actually ships, including what is deliberately *absent*: RAG reads
+  (real tools spell them `search`/`query`/`retrieve`, names shared with harmless
+  tools — no captured trace carries one, and a pattern invented for one is a guess)
+  and directory listings (they return *names*; labeling them would make every `ls` a
+  leg). A test holds the docs and the catalog together. **SPEC §4's citation
+  requirement is now real:** every finding names the **catalog entry id** that
+  assigned each role (`Event.role_labels`, `Leg.catalog_entry`,
+  `ToolCitation.catalog_entry`), so a user who disagrees knows what to edit rather
+  than having to read our source — goldens regenerated, the diff showing exactly the
+  one added field. **The benign corpus got stronger, not weaker:** the triage fixtures
+  now carry `untrusted_source` + `sink:exfil` and are *still* silent, so their silence
+  is load-bearing — it can only come from the machine requiring a sensitive leg
+  (SPEC.md §3), where before it merely meant "no labeled tool was called".
+  **(Phase 2 exit.)**
 
 **Exit:** a real MCP stack's inventory + a real trace → all three tiers, honestly
 tiered and disclosed; "point it at your own agent" is **true**, not aspirational.

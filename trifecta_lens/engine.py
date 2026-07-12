@@ -42,7 +42,13 @@ from trifecta_lens.findings import (
     PathEdge,
     ToolCitation,
 )
-from trifecta_lens.model import Event, LabeledContext, LabeledStack, Value
+from trifecta_lens.model import (
+    Event,
+    LabeledContext,
+    LabeledStack,
+    LabeledTool,
+    Value,
+)
 from trifecta_lens.roles import (
     SENSITIVE_DATA,
     SINK_EXFIL,
@@ -201,11 +207,16 @@ def _path_edges(
 
 
 def _leg(role: Role, event: Event) -> Leg:
-    # The note is read by ROLE, never by tool: the catalog (Stage 1) already
-    # attached its rationale to the event, so the engine cites the entry without
-    # ever learning what a "vault" is (DESIGN.md §5).
+    # The citation is read by ROLE, never by tool: the catalog (Stage 1) already
+    # attached it to the event, so the engine can name the entry that assigned the
+    # role without ever learning what a "vault" is (DESIGN.md §5).
+    label = event.role_labels.get(role)
     return Leg(
-        role=role, event=event.id, tool=event.tool, note=event.role_notes.get(role, "")
+        role=role,
+        event=event.id,
+        tool=event.tool,
+        note=label.note if label else "",
+        catalog_entry=label.entry if label else "",
     )
 
 
@@ -468,13 +479,18 @@ def _capability_legs(context: LabeledContext, roles: Iterable[Role]) -> tuple[
     CapabilityLeg, ...
 ]:
     """Every tool in this context supplying each required leg, in capture order."""
+    def _cite(tool: LabeledTool, role: Role) -> ToolCitation:
+        label = tool.role_labels.get(role)
+        return ToolCitation(
+            tool=tool.name,
+            note=label.note if label else "",
+            catalog_entry=label.entry if label else "",
+        )
+
     return tuple(
         CapabilityLeg(
             role=role,
-            tools=tuple(
-                ToolCitation(tool=tool.name, note=tool.role_notes.get(role, ""))
-                for tool in context.tools_with(role)
-            ),
+            tools=tuple(_cite(t, role) for t in context.tools_with(role)),
         )
         for role in roles
     )

@@ -50,15 +50,22 @@ class PathEdge:
 
 @dataclass(frozen=True)
 class Leg:
-    """One observed leg of a path, citing what assigned the role (SPEC.md §4)."""
+    """One observed leg of a path, citing what assigned the role (SPEC.md §4).
+
+    ``catalog_entry`` is the id of the entry that made the call — the thing the user
+    edits (or overrides in a `--catalog` overlay) if we got it wrong. A finding that
+    justifies itself but does not say where to fix it sends the user into the source.
+    """
 
     role: Role
     event: str
     tool: str | None
     note: str
+    catalog_entry: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "catalog_entry": self.catalog_entry,
             "event": self.event,
             "note": self.note,
             "role": self.role,
@@ -133,13 +140,18 @@ class Finding:
 
 @dataclass(frozen=True)
 class ToolCitation:
-    """One tool carrying a leg, and the catalog rationale that assigned it."""
+    """One tool carrying a leg, and the catalog entry that assigned it."""
 
     tool: str
     note: str
+    catalog_entry: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {"note": self.note, "tool": self.tool}
+        return {
+            "catalog_entry": self.catalog_entry,
+            "note": self.note,
+            "tool": self.tool,
+        }
 
 
 @dataclass(frozen=True)

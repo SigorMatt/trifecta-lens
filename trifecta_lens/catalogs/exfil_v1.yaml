@@ -15,13 +15,27 @@
 # cited for a role is the first matching entry's, in file order.
 #
 # Labeling is heuristic and WILL be imperfect. That is expected and is the
-# contributor flywheel: every finding cites the note below that assigned each
-# role, so a user can see the call we made and correct it.
+# contributor flywheel: every finding cites the ENTRY ID below that assigned each
+# role, so a user can see the call we made, and knows exactly what to edit — or to
+# override in their own `--catalog` overlay. See CONTRIBUTING.md.
+#
+# COVERAGE IS DELIBERATELY CONSERVATIVE. A wrong label is worse than a missing one:
+# a missing label loses a finding, but a wrong label manufactures a confident
+# finding about a role nobody assigned — and the whole product is the claim that we
+# only say what we can support. So entries name tools whose SEMANTICS are clear from
+# the name, and stop. Where a family is real but the naming is ambiguous, it is
+# noted as absent rather than guessed at (see the RAG note below).
 
 version: 1
 
 entries:
   # --- untrusted_source: content the agent did not get from its principal ----
+  #
+  # NOT here: RAG / retrieved-document reads (SPEC.md §4 lists them). Real tools
+  # spell that `search`, `query`, `retrieve` — names that also belong to a dozen
+  # harmless things, including `filesystem__search_files`, which returns NAMES and
+  # is not a source at all. No captured trace yet carries a RAG read, and inventing
+  # a pattern for one would be guessing. It lands when a real trace does.
 
   - id: fetch.url
     match: {tool: "fetch"}
@@ -33,12 +47,35 @@ entries:
     role: untrusted_source
     note: "fetches a URL and returns its content to the model (MCP fetch server)"
 
+  # Issue / PR / comment text: written by third parties, read by the agent. This is
+  # the single most-documented real-world injection vector.
+  - id: issue.text
+    match: {tool: "(.*__)?(read|get|list)_(issue|issues|pull_request|pull_requests|comment|comments)"}
+    role: untrusted_source
+    note: "returns issue/PR/comment text, which is written by third parties"
+
+  # Inbound email: same argument, different channel.
+  - id: email.inbound
+    match: {tool: "(.*__)?(read|get|list|search)_(email|emails|message|messages|thread|threads)"}
+    role: untrusted_source
+    note: "returns inbound message content, which is written by third parties"
+
   # --- sensitive_data: data whose leaving the boundary is the harm ------------
 
   - id: vault.secret
     match: {tool: "vault"}
     role: sensitive_data
     note: "reads a credential from the secret store"
+
+  - id: secret.read
+    match: {tool: "(.*__)?(read|get)_(secret|secrets|credential|credentials|token|api_key)"}
+    role: sensitive_data
+    note: "reads a credential or secret"
+
+  - id: memory.read
+    match: {tool: "(.*__)?(read|get|recall)_(memory|memories)"}
+    role: sensitive_data
+    note: "reads the agent's own memory, which may hold anything it was told"
 
   # The MCP filesystem server's content reads. Note what is NOT here: the
   # directory-listing and metadata tools (list_directory, get_file_info,
@@ -64,6 +101,29 @@ entries:
     subtype: exfil
     note: "sends a message body to an outbound notification endpoint"
 
+  # An outbound HTTP request with a body the model composed.
+  - id: http.outbound
+    match: {tool: "(.*__)?(http_post|post_request|send_request|http_request)"}
+    role: sink
+    subtype: exfil
+    note: "sends a request body to an outbound HTTP endpoint"
+
+  # Email/chat send: the data leaves the boundary to a recipient the model chose.
+  - id: message.send
+    match: {tool: "(.*__)?(send_email|send_message|post_message|send_notification)"}
+    role: sink
+    subtype: exfil
+    note: "sends a message body to an external recipient"
+
+  # A write to a SHARED or PUBLIC location — SPEC.md §4's fourth exfil sink, and the
+  # one people forget. Posting a comment on a public issue puts the payload on the
+  # internet just as surely as a POST does; it simply does not look like one.
+  - id: public.write
+    match: {tool: "(.*__)?(post_comment|create_comment|add_comment|create_issue|update_issue)"}
+    role: sink
+    subtype: exfil
+    note: "writes text to a shared/public location (issue, PR, comment thread)"
+
   # --- sink:impact: a consequential ACTION, not a data leak -------------------
   #
   # These entries are live catalog data with NO family accepting on them in v1:
@@ -76,3 +136,15 @@ entries:
     role: sink
     subtype: impact
     note: "writes to or mutates the local filesystem (MCP filesystem server)"
+
+  - id: shell.exec
+    match: {tool: "(.*__)?(shell|bash|exec|execute|run_command|run_shell_command)"}
+    role: sink
+    subtype: impact
+    note: "executes a shell command"
+
+  - id: repo.merge
+    match: {tool: "(.*__)?(merge_pull_request|merge_pr|merge_branch)"}
+    role: sink
+    subtype: impact
+    note: "merges code into a branch"

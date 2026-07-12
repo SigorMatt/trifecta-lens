@@ -134,10 +134,12 @@ def _format_realized(finding: Finding) -> list[str]:
         "",
         "  legs observed:",
     ]
-    lines += [
-        f"    {leg.role:<17} {leg.event:<4} {leg.tool or '-':<10} {leg.note}"
-        for leg in finding.legs
-    ]
+    for leg in finding.legs:
+        tool = leg.tool or "-"
+        lines.append(f"    {leg.role:<17} {leg.event:<4} {tool:<10} {leg.note}")
+        # Name the entry that made the call. Disagreeing with a label is expected;
+        # the user should not have to read our source to act on it (SPEC.md §4).
+        lines.append(f"    {'':<17} {'':<4} {'':<10} [catalog: {leg.catalog_entry}]")
     if finding.legs_not_observed:
         lines.append("  legs NOT observed:")
         lines += [
@@ -145,6 +147,19 @@ def _format_realized(finding: Finding) -> list[str]:
             for role in finding.legs_not_observed
         ]
     lines += ["", f"  {finding.note}", ""]
+    return lines
+
+
+def leg_lines(finding: CapabilityFinding) -> list[str]:
+    """The exposed-leg block: which tools supply each leg, and which entry said so."""
+    lines: list[str] = []
+    for leg in finding.legs:
+        lines.append(f"    {leg.role:<17} {', '.join(t.tool for t in leg.tools)}")
+        for citation in leg.tools:
+            lines.append(
+                f"    {'':<17} {citation.tool}: {citation.note} "
+                f"[catalog: {citation.catalog_entry}]"
+            )
     return lines
 
 
@@ -161,12 +176,8 @@ def _format_capability(finding: CapabilityFinding) -> list[str]:
         # honesty, and realized owns it (CLAUDE.md invariant 3).
         "  legs exposed:",
     ]
-    for leg in finding.legs:
-        tools = ", ".join(t.tool for t in leg.tools)
-        note = leg.tools[0].note if leg.tools else ""
-        lines.append(f"    {leg.role:<17} {tools}")
-        if note:
-            lines.append(f"    {'':<17} ({note})")
+    for leg in leg_lines(finding):
+        lines.append(leg)
     if finding.legs_absent:
         lines.append("  legs NOT exposed:")
         lines += [

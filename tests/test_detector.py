@@ -121,18 +121,20 @@ def test_finding_states_the_verbatim_only_scope() -> None:
 
 
 def test_finding_cites_why_each_role_was_assigned() -> None:
-    """SPEC.md §4: every finding cites what assigned each role, so a user can
-    see and correct the labeling."""
+    """SPEC.md §4: every finding cites what assigned each role — the rationale AND
+    the catalog entry id, so a user can both judge the call and go change it."""
     (finding,) = _findings(ANCHOR)
     legs = finding["legs"]
     assert legs == [
         {
+            "catalog_entry": "vault.secret",
             "event": "s3",
             "note": "reads a credential from the secret store",
             "role": SENSITIVE_DATA,
             "tool": "vault",
         },
         {
+            "catalog_entry": "webhook.post",
             "event": "s4",
             "note": "sends a payload to an outbound HTTP endpoint",
             "role": SINK_EXFIL,

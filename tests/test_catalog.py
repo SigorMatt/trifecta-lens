@@ -27,6 +27,7 @@ from trifecta_lens.engine import (
     FAMILY_TRIFECTA,
     FAMILY_TWO_LEG,
     detect_realized,
+    satisfied_families,
 )
 from trifecta_lens.labeling import label_events
 from trifecta_lens.loader import load_otlp_trace, load_trace
@@ -96,9 +97,9 @@ def test_the_real_mcp_trace_fires_through_the_default_catalog() -> None:
 def test_default_catalog_covers_both_name_spaces() -> None:
     catalog = default_catalog()
     # Bare names (the flat fixtures, and any host that does not qualify).
-    assert catalog.label("vault") == {
-        SENSITIVE_DATA: "reads a credential from the secret store"
-    }
+    vault = catalog.label("vault")[SENSITIVE_DATA]
+    assert vault.note == "reads a credential from the secret store"
+    assert vault.entry == "vault.secret"
     assert set(catalog.label("webhook")) == {SINK_EXFIL}
     assert set(catalog.label("fetch")) == {UNTRUSTED_SOURCE}
 
@@ -161,9 +162,10 @@ def test_overlay_wins_the_note_for_a_role_it_shares() -> None:
         source="<overlay>",
     )
     catalog = default_catalog().overlaid_with(overlay)
-    assert catalog.label("vault")[SENSITIVE_DATA] == (
-        "our vault holds customer PII, not just credentials"
-    )
+    label = catalog.label("vault")[SENSITIVE_DATA]
+    assert label.note == "our vault holds customer PII, not just credentials"
+    # ...and the finding will cite the USER's entry, not ours.
+    assert label.entry == "mine.vault"
 
 
 def test_a_tool_matching_several_entries_takes_the_union() -> None:
@@ -250,3 +252,122 @@ def test_the_shipped_catalog_is_valid_and_every_entry_is_justified() -> None:
     for entry in catalog.entries:
         assert entry.note.strip(), f"{entry.id} ships without a rationale"
         assert entry.id.strip()
+
+
+# --- Task 2.13's done-when --------------------------------------------------
+
+
+def test_A_STRANGERS_SERVER_IS_COVERED_BY_EDITING_DATA_NOT_CODE() -> None:
+    """2.13's done-when, executable.
+
+    A stack this project has never heard of — a CRM server that reads customer rows
+    and an internal wiki that publishes pages. Zero code knows those names. Under the
+    shipped catalog they are invisible: unlabeled tools get no roles and the machine
+    is silent, correctly.
+
+    Adding ONE overlay file — no code, no engine change, no new branch — makes the
+    same unmodified machine detect the full trifecta on that stack. That is the whole
+    architectural claim of `CLAUDE.md` invariant 2, tested rather than asserted.
+    """
+    strangers_stack = frozenset(
+        {"crm__read_customer_rows", "wiki__publish_page", "fetch__fetch"}
+    )
+
+    shipped = default_catalog()
+    before = {t: set(shipped.label(t)) for t in strangers_stack}
+    assert before["crm__read_customer_rows"] == set()  # invisible...
+    assert before["wiki__publish_page"] == set()  # ...and silent about it.
+
+    # The entire contribution: data.
+    overlay = parse_catalog(
+        """
+        version: 1
+        entries:
+          - id: acme.crm.rows
+            match: {tool: "crm__read_customer_rows"}
+            role: sensitive_data
+            note: "returns customer PII rows from our CRM"
+          - id: acme.wiki.publish
+            match: {tool: "wiki__publish_page"}
+            role: sink
+            subtype: exfil
+            note: "publishes a page to the company-wide wiki, readable by everyone"
+        """,
+        source="<acme-overlay>",
+    )
+    extended = shipped.overlaid_with(overlay)
+
+    roles = frozenset().union(*(extended.label(t) for t in strangers_stack))
+    accepted = satisfied_families(roles)
+
+    assert accepted, "the overlay did not make the stranger's stack detectable"
+    assert accepted[0].id == FAMILY_TRIFECTA
+    # And the engine never learned a thing about CRMs or wikis.
+
+
+def test_the_catalog_covers_every_server_the_real_capture_used() -> None:
+    """2.13: 'catalog entries for the servers the capture actually used'.
+
+    Read off the REAL captured inventory, not a list we maintain by hand — so a
+    future capture that adds a server cannot quietly go uncovered.
+    """
+    from trifecta_lens.inventory import load_inventory
+
+    inventory = load_inventory(FIXTURES / "inventory.json")
+    catalog = default_catalog()
+
+    servers_with_a_role = {
+        tool.server
+        for context in inventory.contexts
+        for tool in context.tools
+        if catalog.label(tool.qualified)
+    }
+    assert servers_with_a_role == {"fetch", "filesystem", "notify"}
+
+
+def test_the_docs_and_the_shipped_catalog_do_not_drift() -> None:
+    """SPEC §4 summarizes the catalog. A summary nobody checks becomes a lie.
+
+    Not a spell-check: it pins the two claims a reader would actually rely on — that
+    every role in the alphabet is covered by at least one shipped entry, and that
+    what SPEC calls out as deliberately ABSENT really is absent.
+    """
+    catalog = default_catalog()
+    shipped_roles = {entry.role for entry in catalog.entries}
+    assert shipped_roles == {SENSITIVE_DATA, SINK_EXFIL, SINK_IMPACT, UNTRUSTED_SOURCE}
+
+    # SPEC §4 says these are deliberately NOT labeled, and says why. Hold it to that:
+    # they return NAMES, not content, and labeling them would make every `ls` a leg.
+    for name_only in (
+        "filesystem__list_directory",
+        "filesystem__search_files",
+        "filesystem__get_file_info",
+        "filesystem__directory_tree",
+    ):
+        assert catalog.label(name_only) == {}, (
+            f"{name_only} returns names, not content — labeling it sensitive_data "
+            "would make every directory listing a leg of an exfil finding."
+        )
+
+    spec = (ROOT / "SPEC.md").read_text(encoding="utf-8")
+    assert "catalogs/exfil_v1.yaml" in spec
+    assert "CONTRIBUTING.md" in spec
+
+
+def test_every_finding_names_the_entry_that_assigned_each_role() -> None:
+    """SPEC.md §4: a finding cites the entry, not just the rationale.
+
+    The note tells a user what call we made; the ENTRY ID tells them what to edit.
+    Without it, disagreeing with a label means reading our source — which is exactly
+    the loop the catalog exists to close.
+    """
+    events = label_events(load_otlp_trace(OTLP_TRACE))
+    finding = next(iter(detect_realized(events)))
+
+    entries = {leg.role: leg.catalog_entry for leg in finding.legs}
+    assert entries[SENSITIVE_DATA] == "mcp.filesystem.content_read"
+    assert entries[SINK_EXFIL] == "mcp.notify.send"
+
+    # And the cited ids are real entries a user can actually find and edit.
+    shipped = {e.id for e in default_catalog().entries}
+    assert set(entries.values()) <= shipped

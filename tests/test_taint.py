@@ -16,6 +16,7 @@ from pathlib import Path
 
 from trifecta_lens.labeling import label_events
 from trifecta_lens.loader import load_trace
+from trifecta_lens.roles import SENSITIVE_DATA
 from trifecta_lens.taint import extract_values, mask, normalize, value_in_payload
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
@@ -55,8 +56,14 @@ def test_secret_is_absent_from_both_triage_fixtures() -> None:
     for path in (TRIAGE_REFUSED, TRIAGE_BENIGN):
         events = label_events(load_trace(path))
         assert not any(value_in_payload(SECRET, e.inputs) for e in events), path.name
-        # No vault call at all in these runs -> no sensitive value even exists.
-        assert not any(extract_values(e) for e in events), path.name
+        # These runs never call the vault, so no SENSITIVE value is ever registered.
+        # (Since 2.13 the catalog does label their issue reads as untrusted_source,
+        # so the taint register is not empty — it holds source-tainted values. What
+        # is absent is a sensitive value, which is the leg exfil requires.)
+        sensitive = [
+            e for e in events if SENSITIVE_DATA in e.roles and extract_values(e)
+        ]
+        assert not sensitive, path.name
 
 
 def test_normalization_is_light_only() -> None:

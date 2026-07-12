@@ -27,6 +27,20 @@ Value: TypeAlias = str
 
 
 @dataclass(frozen=True)
+class RoleLabel:
+    """Why a role was assigned: the catalog entry that did it, and its rationale.
+
+    Both halves are load-bearing. The ``note`` is what a human reads to judge the
+    call; the ``entry`` id is what they **edit** to change it. A finding that
+    explains itself but does not say where to fix it leaves the user reading source
+    code, which is precisely the loop the catalog exists to close (SPEC.md §4).
+    """
+
+    entry: str
+    note: str
+
+
+@dataclass(frozen=True)
 class Event:
     id: str
     parent_id: str | None
@@ -38,10 +52,10 @@ class Event:
     outputs: dict[str, Any] | None
     roles: set[str]
     values: list[Value]
-    #: role -> the catalog entry's human rationale for assigning it (SPEC.md §4).
-    #: Carried on the event so a finding can cite WHY a role was assigned while
-    #: the engine stays tool-blind: it reads this keyed by role, never by tool.
-    role_notes: dict[str, str] = field(default_factory=dict)
+    #: role -> the catalog entry that assigned it (SPEC.md §4). Carried on the event
+    #: so a finding can cite WHY a role was assigned — and WHICH entry to edit —
+    #: while the engine stays tool-blind: it reads this keyed by ROLE, never by tool.
+    role_labels: dict[str, RoleLabel] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-compatible dict; roles are sorted so output is deterministic."""
@@ -56,7 +70,10 @@ class Event:
             "outputs": self.outputs,
             "roles": sorted(self.roles),
             "values": list(self.values),
-            "role_notes": dict(sorted(self.role_notes.items())),
+            "role_labels": {
+                role: {"entry": label.entry, "note": label.note}
+                for role, label in sorted(self.role_labels.items())
+            },
         }
 
     @classmethod
@@ -72,7 +89,10 @@ class Event:
             outputs=data["outputs"],
             roles=set(data["roles"]),
             values=list(data["values"]),
-            role_notes=dict(data.get("role_notes", {})),
+            role_labels={
+                role: RoleLabel(entry=raw["entry"], note=raw["note"])
+                for role, raw in data.get("role_labels", {}).items()
+            },
         )
 
 
@@ -91,7 +111,7 @@ class LabeledTool:
     #: identity. The engine compares these for equality and never parses one.
     name: str
     roles: frozenset[str]
-    role_notes: dict[str, str] = field(default_factory=dict)
+    role_labels: dict[str, RoleLabel] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

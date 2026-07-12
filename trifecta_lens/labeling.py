@@ -32,8 +32,8 @@ def label_events(events: list[Event], catalog: Catalog | None = None) -> list[Ev
     active = default_catalog() if catalog is None else catalog
     labeled = []
     for event in events:
-        notes = active.label(event.tool)
-        labeled.append(replace(event, roles=set(notes), role_notes=notes))
+        labels = active.label(event.tool)
+        labeled.append(replace(event, roles=set(labels), role_labels=labels))
     return labeled
 
 
@@ -51,8 +51,8 @@ def label_inventory(
     active = default_catalog() if catalog is None else catalog
 
     def _tool(name: str) -> LabeledTool:
-        notes = active.label(name)
-        return LabeledTool(name=name, roles=frozenset(notes), role_notes=notes)
+        labels = active.label(name)
+        return LabeledTool(name=name, roles=frozenset(labels), role_labels=labels)
 
     # Unlabeled tools stay in the topology carrying no roles. They are absorbed by
     # the machine's self-loops, and keeping them means the stack the report
