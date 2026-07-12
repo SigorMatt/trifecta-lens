@@ -5,15 +5,59 @@ build-backend = "hatchling.build"
 [project]
 name = "trifecta-lens"
 version = "0.1.0"
-description = "Read-only analyzer that detects lethal-trifecta / data-exfil exposure in MCP-based agent systems from a captured trace and the MCP manifest."
+# This one line is the PyPI summary — the whole description most people will read.
+# It said "...and the MCP manifest", which DECISIONS.md D2/F1 proved FALSE: the file
+# an MCP host loads carries no tools at all. The inputs are a captured trace and a
+# captured tool INVENTORY. A wrong sentence here would be the first thing a reader
+# saw, and it would be wrong about the input the two capability tiers run on.
+description = "Read-only analyzer for lethal-trifecta / data-exfil exposure in MCP agent systems: reads a captured trace and tool inventory, reports realized / reachable / posture findings."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [{ name = "Matthew Sigurko", email = "m.sigor@gmail.com" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "llm-agents",
+    "ai-security",
+    "prompt-injection",
+    "lethal-trifecta",
+    "data-exfiltration",
+    "static-analysis",
+    "opentelemetry",
+    "openinference",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+
 # The catalog is a human-edited, comment-carrying data file, so it earns YAML
 # (DESIGN.md §8). That is the core's ONE runtime dependency: a dependency tree you
 # can read in one screen is itself a feature for a tool whose moat is auditability.
 dependencies = ["PyYAML>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/SigorMatt/trifecta-lens"
+Repository = "https://github.com/SigorMatt/trifecta-lens"
+Issues = "https://github.com/SigorMatt/trifecta-lens/issues"
+Changelog = "https://github.com/SigorMatt/trifecta-lens/releases"
+# The two documents a reader should reach for before trusting a finding: what the
+# tiers mean, and which incidents we cite (primary-source-verified, with dates).
+Specification = "https://github.com/SigorMatt/trifecta-lens/blob/main/SPEC.md"
+"Incident citations" = "https://github.com/SigorMatt/trifecta-lens/blob/main/INCIDENTS.md"
 
 [project.scripts]
 trifecta-lens = "trifecta_lens.cli:main"
