@@ -132,11 +132,17 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   carries its own honesty: the `[REALIZED] sensitive_to_exfil_sink` badge,
   "(two-leg — NOT the trifecta)", `not observed: untrusted_source`, the masked
   value, and "flow observed, not causation".
-- [ ] **1.9 Benign fixture + tests + determinism.** A clean run that produces
+- [x] **1.9 Benign fixture + tests + determinism.** A clean run that produces
   NO realized finding; pytest anchoring positive→realized and benign→none;
   re-run gives byte-identical findings. *Done when all green.*
-  **(Phase 1 exit + first shareable: post the red-edge SVG + the
-  `RECEIVED API_KEY=…` line.)**
+  Added `fixtures/benign_no_flow.jsonl` (hand-authored): it calls **both**
+  labeled tools — `vault` *and* `webhook` — but never posts the secret. Its
+  silence therefore cannot come from the labeling, only from the verbatim guard
+  failing. The two captured triage fixtures are silent for a *different* reason
+  (they never call a labeled tool at all), and `tests/test_determinism.py` names
+  both reasons rather than lumping them together. 0.7's acceptance harness now
+  carries the Phase-1 done-whens, as it always said it would.
+  **(Phase 1 exit.)**
 
 ---
 
