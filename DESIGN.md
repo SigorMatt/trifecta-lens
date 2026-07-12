@@ -109,11 +109,12 @@ path; the matched value (masked) is the evidence.
   rules) are a possible later, cautiously exposed third layer — Phase 2+, each
   knob disclosed in findings output ("detected under config X").
 
-> **NOTE (Phase 2): see `OPEN_QUESTIONS.md` §2.** Phase 1 already introduced such
-> a knob — `MIN_VALUE_CHARS = 8` in `trifecta_lens/taint.py` — and it is **not**
-> disclosed per-finding. Phase 2 must either disclose it or promote it into this
-> exposed layer properly; an undisclosed threshold silently bounds what realized
-> can see, which makes "no finding" un-auditable.
+**Resolved (`DECISIONS.md` D4).** The v1 extraction parameters
+(`min_value_chars`, `match`, `normalization`) are **fixed and disclosed** — not
+user-tunable, so the catalog remains the only knob, but carried in every finding's
+`detected_under` field and stated in the report (`SPEC.md` §6.1). An undisclosed
+threshold silently bounds what realized can see, making "no finding"
+un-auditable — the same honesty failure as an overclaim, pointed the other way.
 
 ## 5. Two stages, one process
 
@@ -186,8 +187,10 @@ network use never trips the 0.4 guard.
 - **Algorithms (all textbook, all hand-rolled):** Kahn's topological sort for
   the event DAG, tie-broken by `(start_time, span_id)` — **the tie-break rule
   is a determinism invariant**; worklist/fixpoint iteration for the automaton
-  run (terminates: finite monotone lattice); plain normalized substring match
-  for taint at v1 scale. Aho-Corasick (`pyahocorasick`) is the noted Phase 2+
+  run (terminates: finite monotone lattice); plain normalized **containment**
+  match for taint at v1 scale (`SPEC.md` §6, `DECISIONS.md` D3 — the value must
+  occur in the sink's payload, untransformed; "verbatim" constrains the value,
+  not the surrounding body). Aho-Corasick (`pyahocorasick`) is the noted Phase 2+
   upgrade for many-values × many-sinks matching — not now.
 - **Serialization:** stdlib `json` with `sort_keys=True` everywhere findings
   are written — enforce with a test, not convention.

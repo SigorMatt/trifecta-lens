@@ -177,7 +177,7 @@ weakening the tier.
 
 ### Track A — the existing realized tier *(independent of Checkpoint D; start now)*
 
-- [ ] **2.1 Containment + disclosed extraction config** (D3 + D4; resolves
+- [x] **2.1 Containment + disclosed extraction config** (D3 + D4; resolves
   `OPEN_QUESTIONS.md` §§1–2). **Spec-first:** reconcile `SPEC.md` §6 ("Match =
   exact"), `SPEC.md` §5 step 3 ("appears in") and `DESIGN.md` §8 ("substring") to
   **one** wording — containment of the untransformed value. Promote
@@ -186,8 +186,15 @@ weakening the tier.
   2: the catalog stays the only knob). *Done when: the three passages agree; every
   finding carries `detected_under`; and the constant ships with a **measured**
   false-positive justification against the benign corpus — a number, not an
-  assertion.*
-- [ ] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
+  assertion.* — `trifecta_lens/extraction.py`; `detected_under` on every finding
+  and in every report (**including silent ones** — "no finding" is only auditable
+  if you know the bounds). **The first measurement refuted the claim:** the benign
+  corpus gave zero false positives at *every* threshold, even 1, so `8` was
+  justified by nothing. Added `fixtures/benign_short_value_collision.jsonl` (a
+  4-char vault value colliding with a record count at the sink), which makes the
+  curve real: FP at ≤4, silent at ≥5, true positives survive to 16 — so the
+  shipped 8 sits **in the middle of the safe window**, with margin on both sides.
+- [x] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
   **Spec-first:** `SPEC.md` §5, `DESIGN.md` §1. Each path edge carries its basis
   (`causal` from real `parent_id` ancestry, `temporal` from ordering alone); the
   finding carries a **required** `path_basis` field (`causal`|`temporal`|`mixed`);
@@ -195,12 +202,17 @@ weakening the tier.
   `path_basis: temporal` (correctly — its tool spans are siblings under the root);
   a fixture with a real parent chain reads `causal`; and the SVG edge is labelled.
   **Blocks any public artifact.***
-- [ ] **2.3 Harden the architecture gate to the stage seam** (D6; resolves
+- [x] **2.3 Harden the architecture gate to the stage seam** (D6; resolves
   `OPEN_QUESTIONS.md` §4). The 0.8 gate learns `DESIGN.md` §5: tool-name-keyed data
   is legal in **Stage 1** (loader, inventory front-end, catalog/labeling), illegal
-  in **Stage 2** (engine, findings, report, svg). *Done when the gate fails on a
-  per-tool dict table planted in `engine.py` and passes on the same table in
-  `labeling.py`.*
+  in **Stage 2** (engine, taint, findings, report, svg). *Done when the gate fails
+  on a per-tool dict table planted in `engine.py` and passes on the same table in
+  `labeling.py`.* — Verified by **planting the real violation in `engine.py`** and
+  watching the gate fire, not only by unit-testing synthetic AST. The gate flags
+  the **lookup**, not the table: a tool-keyed table is the labeling function's
+  whole job, and a table nobody consults is harmless — what must never happen is
+  the *engine* looking a tool up in one. A coverage test also fails if a new core
+  module is added without being assigned to a stage.
 
 ### Track B — the real-MCP capture *(the root dependency)*
 
