@@ -389,7 +389,7 @@ weakening the tier.
   (i.e. as reachable). Gate fix: type annotations are exempt from the tool-lookup
   scan — `tools: tuple[ToolCitation, ...]` is a declaration, not a lookup — with a
   test pinning that the carve-out is not a loophole.
-- [ ] **2.11 Reachable tier + collapse disclosure + non-vacuity** (D1, D7).
+- [x] **2.11 Reachable tier + collapse disclosure + non-vacuity** (D1, D7).
   Reachable = all legs co-exposed in **one context**; the same machine with edges on
   and the guard off. **Must detect and disclose the collapse case**
   (`reachable == posture` ⇒ say "reachable adds no information on this stack: all
@@ -399,6 +399,31 @@ weakening the tier.
   property test.* **🛑 If non-vacuity fails on the real inventory, HALT** — do not
   weaken the tier to make it pass; take D7's constructed fallback, which is itself
   held to "instantiates a **documented in-the-wild topology**", not "discriminates".
+  — **🛑 The halt condition did NOT fire: non-vacuity holds on the real capture,
+  checked rather than trusted.** `reachable_collapse` reports
+  `collapsed=False, narrowed=('triage',)`: the real `triage` context carries the
+  source and sensitive legs but **no outbound sink**, so it cannot wire the family
+  posture finds — a distinction posture is structurally unable to see. D7's
+  constructed fallback was therefore never needed. `detect_reachable` is the same
+  `detect_capability` call as posture, run per real context. **The collapse
+  disclosure ships anyway** (D1 binds it regardless of the capture): a stack where
+  every context accepts what the union accepts is detected and disclosed *in the
+  finding itself* (a `disclosure` field), not merely in the report — an NDJSON
+  consumer must not have to trust that someone printed the caveat elsewhere. It is
+  exercised by slicing the real inventory to one captured context (a projection of a
+  real capture, never an invention). `realized ⊆ reachable ⊆ posture` is executable
+  on the real trace + real inventory, compared at the acceptance predicate. **And the
+  gap between the tiers is real, and is the product:** the captured run realized only
+  the **two-leg** family, while the same `assistant` context is *also* exposed to
+  `fetch__fetch` — so the full trifecta is **reachable but was not realized**.
+  "Could, but didn't" is exactly what this tier exists to say. **Determinism bug
+  caught and fixed:** leg order was read off `family.required`, a **frozenset**,
+  whose iteration order is randomized per process — findings were byte-identical
+  within a run and differed *between* runs, the one way a same-process test can never
+  see. Fixed to the fixed reporting order;
+  `test_capability_findings_are_deterministic_ACROSS_PROCESSES` now runs the pipeline
+  under four `PYTHONHASHSEED`s and demands identical bytes (verified by reintroducing
+  the bug and watching it fail).
 - [ ] **2.12 Tiered output across all three tiers.** Report, SVG and findings NDJSON
   carry tier + family + `path_basis` + `detected_under`. Tier honesty holds in the
   **text**, not just the logic (`CLAUDE.md` 3). *Done when a single run over

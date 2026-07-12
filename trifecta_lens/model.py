@@ -129,6 +129,12 @@ class LabeledStack:
 
     contexts: tuple[LabeledContext, ...]
 
+    def context(self, context_id: str) -> LabeledContext:
+        for context in self.contexts:
+            if context.id == context_id:
+                return context
+        raise KeyError(context_id)
+
     def posture_context(self) -> LabeledContext:
         """The stack collapsed to ONE bag of tools — the posture tier's input.
 

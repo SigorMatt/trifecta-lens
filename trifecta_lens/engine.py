@@ -383,6 +383,86 @@ _TIER_TEXT: Final[dict[str, tuple[str, str]]] = {
     TIER_REACHABLE: (SUMMARY_REACHABLE, NOTE_REACHABLE),
 }
 
+DISCLOSURE_POSTURE: Final[str] = (
+    "posture is the weakest of the three tiers and overlaps what ordinary static "
+    "scanners already report. Do not read it as a path: it says the parts are in "
+    "the building, not that one agent can reach them all."
+)
+
+#: The collapse case (DECISIONS.md D1). On a stack where every agent context can
+#: already wire everything posture found, reachable is *necessarily* equal to
+#: posture and carries no information. That is a real property of some stacks — and
+#: a tier that quietly says nothing while looking like it says something is exactly
+#: the tier-honesty failure the invariant exists to prevent. So we detect it and
+#: say it, in the finding itself.
+DISCLOSURE_COLLAPSED_SINGLE: Final[str] = (
+    "reachable adds no information on this stack: it has a single agent context, "
+    "so every leg posture found is co-exposed to it by definition. Here reachable "
+    "and posture are the same tier — treat this finding as posture."
+)
+DISCLOSURE_COLLAPSED_ALL: Final[str] = (
+    "reachable adds no information on this stack: every agent context exposes all "
+    "the legs posture found, so no context is more restricted than the stack as a "
+    "whole. Here reachable and posture coincide — treat this finding as posture."
+)
+DISCLOSURE_TIGHTER: Final[str] = (
+    "reachable is strictly tighter than posture on this stack: {narrowed} of "
+    "{total} agent contexts cannot wire this family ({names}). Posture cannot see "
+    "that distinction — it only asks whether the legs exist somewhere."
+)
+
+
+@dataclass(frozen=True)
+class ReachableCollapse:
+    """Whether reachable degenerates into posture on this stack (D1)."""
+
+    collapsed: bool
+    disclosure: str
+    #: The contexts that CANNOT wire what posture found — the evidence that this
+    #: tier is doing work. Empty exactly when ``collapsed``.
+    narrowed_contexts: tuple[str, ...]
+
+
+def reachable_collapse(stack: LabeledStack) -> ReachableCollapse:
+    """Detect (and word) the collapse case, so the tool can disclose it.
+
+    Reachable has collapsed when **every** context accepts exactly what the union
+    accepts — then knowing a family is reachable tells you nothing you did not
+    already know from posture.
+
+    The negation is what makes reachable worth shipping: at least one real agent
+    context is narrower than the stack, so reachable can say "this one cannot do it"
+    where posture must stay silent. That is *non-vacuity*, and it is a property of
+    the captured stack, not of our code — which is why it is computed here and
+    proven on a real inventory (D7), never asserted.
+    """
+    posture_families = satisfied_families(stack.posture_context().roles())
+    narrowed = tuple(
+        context.id
+        for context in stack.contexts
+        if satisfied_families(context.roles()) != posture_families
+    )
+
+    if not narrowed:
+        return ReachableCollapse(
+            collapsed=True,
+            disclosure=(
+                DISCLOSURE_COLLAPSED_SINGLE
+                if len(stack.contexts) <= 1
+                else DISCLOSURE_COLLAPSED_ALL
+            ),
+            narrowed_contexts=(),
+        )
+    return ReachableCollapse(
+        collapsed=False,
+        disclosure=DISCLOSURE_TIGHTER.format(
+            narrowed=len(narrowed),
+            total=len(stack.contexts),
+            names=", ".join(narrowed),
+        ),
+        narrowed_contexts=narrowed,
+    )
+
 
 def _capability_legs(context: LabeledContext, roles: Iterable[Role]) -> tuple[
     CapabilityLeg, ...
@@ -401,7 +481,7 @@ def _capability_legs(context: LabeledContext, roles: Iterable[Role]) -> tuple[
 
 
 def detect_capability(
-    context: LabeledContext, tier: str
+    context: LabeledContext, tier: str, disclosure: str
 ) -> Iterator[CapabilityFinding]:
     """Run the automaton over one context's exposed roles, with the guard OFF.
 
@@ -420,7 +500,12 @@ def detect_capability(
         return
     family = accepted[0]
 
-    legs = _capability_legs(context, family.required)
+    # Iterate the legs in the fixed reporting order, NOT in `family.required`'s
+    # order: that is a frozenset, and frozenset iteration order depends on string
+    # hashing, which is randomized per process. Reading it directly would make the
+    # findings differ run-to-run — silently, and only across processes, which is the
+    # worst way for a determinism invariant to break (DESIGN.md §8).
+    legs = _capability_legs(context, (r for r in _EXFIL_LEGS if r in family.required))
     for sink in context.tools_with(family.sink):
         yield CapabilityFinding(
             family=family.id,
@@ -436,6 +521,7 @@ def detect_capability(
             legs_absent=tuple(r for r in _EXFIL_LEGS if r not in exposed),
             note=note,
             scope=CAPABILITY_SCOPE,
+            disclosure=disclosure,
         )
 
 
@@ -446,4 +532,28 @@ def detect_posture(stack: LabeledStack) -> Iterator[CapabilityFinding]:
     **Never headline it**: it overlaps what ordinary static scanners already do,
     and it says nothing about whether one agent could actually reach them all.
     """
-    yield from detect_capability(stack.posture_context(), TIER_POSTURE)
+    yield from detect_capability(
+        stack.posture_context(), TIER_POSTURE, DISCLOSURE_POSTURE
+    )
+
+
+def detect_reachable(stack: LabeledStack) -> Iterator[CapabilityFinding]:
+    """Reachable: are all legs co-exposed to ONE agent context? (D1, SPEC.md §5)
+
+    The lethal-trifecta condition proper, and the tier the tool exists to report.
+    Strictly tighter than posture whenever some context is narrower than the stack:
+    a context with no outbound sink yields nothing here, while the stack as a whole
+    still trips posture.
+
+    **Co-exposure is the edge relation** — not tool-I/O type compatibility, which
+    would be near-vacuous (`DECISIONS.md` F2). Two tools are connected when one agent
+    context can invoke both, because the model between them is a universal connector
+    that will move any value anywhere. So "all legs in one context" *is* the graph
+    question, and it needs no adjacency structure to answer.
+
+    Every finding carries :func:`reachable_collapse`'s verdict, so a stack on which
+    this tier is degenerate says so **in the finding**, not just in the report.
+    """
+    collapse = reachable_collapse(stack)
+    for context in stack.contexts:
+        yield from detect_capability(context, TIER_REACHABLE, collapse.disclosure)

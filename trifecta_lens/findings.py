@@ -175,10 +175,18 @@ class CapabilityFinding:
     legs_absent: tuple[Role, ...]
     note: str
     scope: str
+    #: What this tier is worth **on this particular stack** (D1). `note` is fixed
+    #: text about what the tier means; this is a claim about the stack in hand —
+    #: above all, whether reachable has collapsed into posture here. It rides on the
+    #: finding rather than sitting only in the report, because a consumer reading
+    #: the NDJSON alone would otherwise take a collapsed reachable tier at face
+    #: value.
+    disclosure: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "context": {"id": self.context, "provenance": self.context_provenance},
+            "disclosure": self.disclosure,
             "family": self.family,
             "legs": [leg.to_dict() for leg in self.legs],
             "legs_absent": list(self.legs_absent),
