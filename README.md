@@ -61,12 +61,8 @@ Could, but didn't. That sentence is the whole tool.
 
 ## 60 seconds
 
-**Not on PyPI yet** — install from the repo. (When it is published, this line
-becomes `pipx install "trifecta-lens[capture]"`; we are not going to write that
-here before it is true.)
-
 ```
-pipx install "trifecta-lens[capture] @ git+https://github.com/SigorMatt/trifecta-lens"
+pipx install "trifecta-lens[capture]"      # or: uvx --from "trifecta-lens[capture]" trifecta-lens
 
 # 1. Capture your agent's tool inventory (launches your servers, asks tools/list,
 #    calls nothing). --context declares which agent sees which servers.

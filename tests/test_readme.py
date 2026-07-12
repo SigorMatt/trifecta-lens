@@ -172,25 +172,27 @@ def test_the_findings_json_in_the_readme_is_the_real_finding() -> None:
 def test_the_readme_does_not_tell_a_stranger_to_install_something_that_isnt_there() -> (
     None
 ):
-    """The quickstart has to WORK on first contact. Today that means: not PyPI.
+    """The quickstart has to WORK on first contact.
 
-    The first draft of this README opened with `pipx install "trifecta-lens[capture]"`,
-    which reads perfectly and fails for every human who runs it: the package is not
-    published. A launch page whose very first command 404s has spent the credibility
-    the rest of the page is asking for.
+    **This is the flipped half of a pair, and it flipped for a reason.** Until
+    trifecta-lens existed on PyPI, this test demanded the opposite: it FAILED the
+    build unless every install command in a code block carried a `git+https://` URL,
+    because `pipx install "trifecta-lens[capture]"` — which reads perfectly — 404'd
+    for every human who ran it. A launch page whose first command fails has spent the
+    credibility the rest of the page is asking for.
 
-    So the install line points at the repo, and this test pins that. **When
-    trifecta-lens is published to PyPI, flip both** — the README line and this test,
-    together, in the same change. That is the point: the claim cannot become true
-    quietly, and it cannot become false quietly either.
+    The package is published now, so the README names it and this test pins THAT.
+    The pair is the mechanism: the claim could not become true quietly, and it cannot
+    now rot back into a lie quietly either. If the project is ever renamed or yanked,
+    this is what goes red.
+
+    (See RELEASE.md. Merging this commit before the first successful upload would
+    reintroduce exactly the failure it exists to prevent.)
     """
     text = _readme()
-    assert "Not on PyPI yet" in text, (
-        "the README must say the package is unpublished for as long as it is"
+    assert "Not on PyPI yet" not in text, (
+        "the package is published — the README must not still say it is not"
     )
-    # Only COMMANDS — the lines a reader will paste into a shell. Prose may discuss
-    # the PyPI command that does not exist yet (the paragraph above does exactly
-    # that); what must never happen is one sitting in a code block, ready to run.
     commands = "\n".join(
         body for lang, body in _fenced() if lang in {"", "console", "sh", "bash"}
     )
@@ -202,8 +204,10 @@ def test_the_readme_does_not_tell_a_stranger_to_install_something_that_isnt_ther
     ]
     assert install_lines, "the README shows no install command"
     for line in install_lines:
-        assert "git+https://" in line, (
-            f"install command does not resolve to anything installable today: {line}"
+        assert "trifecta-lens" in line, f"install command names no package: {line}"
+        assert "git+" not in line, (
+            "the package is on PyPI; the quickstart should not still route a reader "
+            f"through a git URL: {line}"
         )
 
 
