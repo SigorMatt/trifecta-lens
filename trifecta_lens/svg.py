@@ -12,11 +12,12 @@ same flow-not-causation summary. It must not be possible to mistake a two-leg
 finding for a trifecta by looking at the picture.
 """
 
+from collections.abc import Sequence
 from typing import Final
 from xml.sax.saxutils import escape
 
-from trifecta_lens.engine import FAMILY_TRIFECTA
-from trifecta_lens.findings import BASIS_TEMPORAL, Finding
+from trifecta_lens.engine import FAMILIES, FAMILY_TRIFECTA
+from trifecta_lens.findings import BASIS_TEMPORAL, CapabilityFinding, Finding
 from trifecta_lens.roles import SENSITIVE_DATA, SINK_EXFIL
 
 # Geometry (px). Everything below is derived from these.
@@ -27,6 +28,8 @@ _GAP: Final[int] = 96
 _NODE_Y: Final[int] = 132
 _MIN_W: Final[int] = 720
 _HEIGHT: Final[int] = 320
+#: Extra height for the "also reachable" block, when there is one.
+_ESCALATION_H: Final[int] = 74
 
 _INK: Final[str] = "#1b1f24"
 _MUTED: Final[str] = "#6a737d"
@@ -77,17 +80,54 @@ def _node(x: int, event: str, tool: str | None, role: str) -> str:
     )
 
 
-def render_svg(finding: Finding) -> str:
+def _family_rank(family: str) -> int:
+    """Index in FAMILIES — lower is stronger. Unknown families rank weakest."""
+    for i, candidate in enumerate(FAMILIES):
+        if candidate.id == family:
+            return i
+    return len(FAMILIES)
+
+
+def _stronger_reachable(
+    finding: Finding, reachable: Sequence[CapabilityFinding]
+) -> CapabilityFinding | None:
+    """A reachable finding at a STRICTLY stronger family than what was realized.
+
+    This is the gap that makes the tiers worth having, and the one thing a viewer of
+    the picture alone would otherwise never learn: the run we captured wired the
+    lesser family, but the very same agent context is exposed to everything the
+    stronger one needs. Showing it is honest; showing it *as a red arrow* would not
+    be, since nothing was observed. It goes in grey, below the path, labelled as
+    not observed.
+    """
+    realized_rank = _family_rank(finding.family)
+    stronger = [
+        candidate
+        for candidate in reachable
+        if _family_rank(candidate.family) < realized_rank
+        and candidate.sink_tool == finding.sink_tool
+    ]
+    # Deterministic pick: strongest family, then context id.
+    stronger.sort(key=lambda c: (_family_rank(c.family), c.context))
+    return stronger[0] if stronger else None
+
+
+def render_svg(
+    finding: Finding, reachable: Sequence[CapabilityFinding] = ()
+) -> str:
     """Render one finding's path as a standalone SVG. Deterministic."""
     legs = finding.legs
     count = len(legs)
     width = max(_MIN_W, 2 * _MARGIN + count * _NODE_W + (count - 1) * _GAP)
 
+    escalation = _stronger_reachable(finding, reachable)
+    height = _HEIGHT + (_ESCALATION_H if escalation else 0)
+
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
-        f'height="{_HEIGHT}" viewBox="0 0 {width} {_HEIGHT}" '
+        f'height="{height}" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="{escape(finding.summary)}">',
-        f'<rect width="{width}" height="{_HEIGHT}" fill="{_PAPER}"/>',
+        f'<rect width="{width}" height="{height}" fill="{_PAPER}"/>',
         # The arrowhead marker: the edge has a direction — data moved this way.
         f'<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" '
         f'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
@@ -153,6 +193,41 @@ def render_svg(finding: Finding) -> str:
         )
     for i, line in enumerate(disclaimer):
         parts.append(_text(_MARGIN, footer_y + 44 + i * 15, line, 11, _MUTED))
+
+    # The tier gap, in grey and below the path — never on the red edge. The red
+    # edge means "observed"; this was not observed, and the picture must not blur
+    # the two even when the stronger claim is the more interesting one.
+    if escalation is not None:
+        y = footer_y + 88
+        parts += [
+            f'<line x1="{_MARGIN}" y1="{y - 14}" x2="{width - _MARGIN}" '
+            f'y2="{y - 14}" stroke="{_DEFAULT_STROKE}" stroke-width="1" '
+            f'stroke-dasharray="4 4"/>',
+            _text(
+                _MARGIN,
+                y + 8,
+                f"[REACHABLE, NOT OBSERVED]  {escalation.family}",
+                13,
+                _MUTED,
+                "700",
+            ),
+            _text(
+                _MARGIN,
+                y + 28,
+                f"agent context {escalation.context!r} is also exposed to the "
+                "remaining leg, so a single run could",
+                11,
+                _MUTED,
+            ),
+            _text(
+                _MARGIN,
+                y + 43,
+                "wire the stronger family. No run was observed doing so. "
+                "Capability, not observation.",
+                11,
+                _MUTED,
+            ),
+        ]
 
     parts.append("</svg>")
     return "\n".join(parts) + "\n"

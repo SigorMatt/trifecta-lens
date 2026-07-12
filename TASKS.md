@@ -424,11 +424,27 @@ weakening the tier.
   `test_capability_findings_are_deterministic_ACROSS_PROCESSES` now runs the pipeline
   under four `PYTHONHASHSEED`s and demands identical bytes (verified by reintroducing
   the bug and watching it fail).
-- [ ] **2.12 Tiered output across all three tiers.** Report, SVG and findings NDJSON
+- [x] **2.12 Tiered output across all three tiers.** Report, SVG and findings NDJSON
   carry tier + family + `path_basis` + `detected_under`. Tier honesty holds in the
   **text**, not just the logic (`CLAUDE.md` 3). *Done when a single run over
   inventory + trace emits all three tiers, each correctly badged, and the honesty
-  gate scans the rendered output for all of them.*
+  gate scans the rendered output for all of them.* — `trifecta-lens --trace ... --inventory ...`
+  (see `make demo-mcp`) emits all three tiers over the two **real** Checkpoint D
+  artifacts. `report.TierResults` makes the load-bearing distinction explicit:
+  `None` = **the tier did not run**, `()` = the tier ran and found nothing. They are
+  rendered differently, because an empty posture section that a reader takes for a
+  clean bill of health is exactly the quiet failure this project cannot afford.
+  Tiers print strongest-first, so posture is never the headline. **The capability
+  tiers never borrow realized's verb:** they print `legs exposed:`, never
+  `legs observed:`, and say "no run was observed doing so" outright — pinned by a
+  test that scans the capability sections for realized's language. NDJSON carries
+  every tier, strongest-first, each line self-describing. The **SVG** now shows the
+  tier gap — `[REACHABLE, NOT OBSERVED] exfil_trifecta` — in grey, below the path,
+  never on the red edge (red means *observed*); it is the most interesting fact on
+  the artifact and the easiest place to overclaim. Geometry is checked
+  arithmetically (no rasterizer in CI) because the honesty disclaimers sit at the
+  bottom and are the first thing a too-small canvas would silently truncate. The
+  0.8 honesty gate now renders and scans **all three tiers plus the SVG**.
 - [ ] **2.13 Default v1 exfil catalog + docs.** Catalog entries for the servers the
   capture actually used, plus the source/sink lists in `SPEC.md` §4.
   `CONTRIBUTING.md` frames "add a catalog entry" as the contribution path.

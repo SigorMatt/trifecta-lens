@@ -8,23 +8,31 @@ anywhere (DESIGN.md §7) — piping the NDJSON stream onward is the user's job.
 import argparse
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from importlib.metadata import version
 from pathlib import Path
 
 from trifecta_lens.catalog import Catalog, default_catalog, load_catalog
-from trifecta_lens.engine import detect_realized
-from trifecta_lens.findings import Finding, write_ndjson
-from trifecta_lens.labeling import label_events
+from trifecta_lens.engine import (
+    detect_posture,
+    detect_reachable,
+    detect_realized,
+    reachable_collapse,
+)
+from trifecta_lens.findings import NdjsonSerializable, write_ndjson
+from trifecta_lens.inventory import load_inventory
+from trifecta_lens.labeling import label_events, label_inventory
 from trifecta_lens.loader import load_otlp_trace, load_trace
 from trifecta_lens.model import Event
-from trifecta_lens.report import format_report
+from trifecta_lens.report import TierResults, format_report
 from trifecta_lens.svg import render_svg
 
 _SCOPE_HELP = (
     "v1 detects VERBATIM taint only: a value that was encoded, split, "
     "summarized or paraphrased between source and sink will NOT be detected. "
     "Transformed taint, cross-agent multi-hop and memory-poisoning are out of "
-    "scope and are not detected. This slice runs the realized tier only."
+    "scope and are not detected. A tier with no input does not run — and says so; "
+    "it never reports a clean result it did not check for."
 )
 
 
@@ -74,6 +82,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--inventory",
+        type=Path,
+        help=(
+            "captured tool inventory (JSON) — runs the posture and reachable "
+            "tiers. Without it, those tiers do not run (and say so)."
+        ),
+    )
+    parser.add_argument(
         "--catalog",
         type=Path,
         help=(
@@ -98,30 +114,53 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.trace is None:
+    if args.trace is None and args.inventory is None:
         parser.print_help()
         return 0
 
-    events = label_events(_load_events(args.trace), _catalog(args.catalog))
+    catalog = _catalog(args.catalog)
 
-    # The engine is a generator: findings are written as they are found, so the
-    # NDJSON is a true append-stream (DESIGN.md §6) rather than a document
-    # assembled at the end.
-    findings: list[Finding] = []
+    # Each tier runs only if it was given its input. A tier that did not run stays
+    # `None` all the way to the report, where it is rendered as NOT RUN — never as
+    # "found nothing" (SPEC.md §5).
+    results = TierResults()
+
+    if args.trace is not None:
+        events = tuple(label_events(_load_events(args.trace), catalog))
+        results = replace(
+            results, events=events, realized=tuple(detect_realized(events))
+        )
+
+    if args.inventory is not None:
+        stack = label_inventory(load_inventory(args.inventory), catalog)
+        results = replace(
+            results,
+            reachable=tuple(detect_reachable(stack)),
+            posture=tuple(detect_posture(stack)),
+            collapse=reachable_collapse(stack),
+        )
+
+    # Findings are written as they are found — an append-stream, never a document
+    # assembled at the end (DESIGN.md §6). Strongest tier first, so a consumer
+    # reading line-by-line sees the strongest claim first.
+    ordered: list[NdjsonSerializable] = [
+        *(results.realized or ()),
+        *(results.reachable or ()),
+        *(results.posture or ()),
+    ]
     if args.findings is not None:
         args.findings.parent.mkdir(parents=True, exist_ok=True)
         with args.findings.open("w", encoding="utf-8") as stream:
-            for finding in detect_realized(events):
-                write_ndjson([finding], stream)
-                findings.append(finding)
-    else:
-        findings = list(detect_realized(events))
+            write_ndjson(ordered, stream)
 
-    print(format_report(findings, events))
+    print(format_report(results=results))
 
-    if args.svg is not None and findings:
+    if args.svg is not None and results.realized:
         args.svg.parent.mkdir(parents=True, exist_ok=True)
-        args.svg.write_text(render_svg(findings[0]), encoding="utf-8")
+        args.svg.write_text(
+            render_svg(results.realized[0], reachable=results.reachable or ()),
+            encoding="utf-8",
+        )
         print(f"wrote {args.svg}", file=sys.stderr)
 
     return 0

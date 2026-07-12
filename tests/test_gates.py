@@ -249,6 +249,59 @@ def test_no_causal_or_attack_language_in_rendered_output() -> None:
             json.loads(line)
 
 
+def test_no_causal_or_attack_language_in_ANY_TIER_of_the_rendered_output() -> None:
+    """Task 2.12: the gate now scans all three tiers, on the real captured stack.
+
+    The capability tiers write more prose than realized does — a summary, a note, a
+    scope, a stack-specific disclosure, and a human-written context provenance
+    carried straight through from the capture. That is a lot of new surface for the
+    word "attack" to creep onto, and none of it existed when this gate was written.
+    So render every tier and scan the lot, including the SVG, which is the artifact
+    most likely to be seen with no report around it.
+    """
+    import json
+    from pathlib import Path
+
+    from trifecta_lens.engine import (
+        detect_posture,
+        detect_reachable,
+        detect_realized,
+        reachable_collapse,
+    )
+    from trifecta_lens.inventory import load_inventory
+    from trifecta_lens.labeling import label_events, label_inventory
+    from trifecta_lens.loader import load_otlp_trace
+    from trifecta_lens.report import TierResults, format_report
+    from trifecta_lens.svg import render_svg
+
+    fixtures = Path(__file__).resolve().parent.parent / "fixtures"
+    events = tuple(label_events(load_otlp_trace(fixtures / "demo_mcp_trace.otlp.json")))
+    stack = label_inventory(load_inventory(fixtures / "inventory.json"))
+
+    results = TierResults(
+        events=events,
+        realized=tuple(detect_realized(events)),
+        reachable=tuple(detect_reachable(stack)),
+        posture=tuple(detect_posture(stack)),
+        collapse=reachable_collapse(stack),
+    )
+    assert results.realized and results.reachable and results.posture
+
+    report = format_report(results=results)
+    svg = render_svg(results.realized[0], reachable=results.reachable)
+    lines = [
+        f.to_json_line()
+        for f in (*results.realized, *results.reachable, *results.posture)
+    ]
+
+    for name, text in [("report", report), ("svg", svg), *enumerate(lines)]:
+        assert not banned_tokens_in(text), f"{name}: {banned_tokens_in(text)}"
+        assert "sk-demo-trifecta-lens-DO-NOT-USE-0000" not in text
+
+    for line in lines:
+        json.loads(line)
+
+
 def test_honesty_gate_detects_banned_tokens() -> None:
     """The scanner itself must catch each banned form, or the gate rots."""
     assert banned_tokens_in("tainted data observed reaching webhook") == []

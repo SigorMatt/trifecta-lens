@@ -2,7 +2,7 @@
 # before it counts as done (ENVIRONMENT.md): it wraps the exact toolchain
 # commands plus the Phase 0 done-whens as runnable checks.
 
-.PHONY: check golden demo demo-live demo-direct
+.PHONY: check golden demo demo-mcp demo-live demo-direct
 
 check:
 	uv run ruff check .
@@ -29,6 +29,22 @@ demo:
 	uv run trifecta-lens --trace fixtures/demo_realized.jsonl \
 		--findings out/demo_realized.findings.ndjson \
 		--svg out/demo_realized.svg
+
+# The Phase 2 exit, demoable (task 2.12). ALL THREE TIERS in one run, over the two
+# REAL Checkpoint D artifacts: the captured OTLP trace and the captured tool
+# inventory. No model call, no network, no key — it reads committed captures and
+# writes local files.
+#
+# What it shows: the captured run realized only the TWO-LEG family (no untrusted
+# source was in the path), while the same `assistant` context is also exposed to
+# fetch — so the full trifecta is REACHABLE and no run was observed wiring it. The
+# `triage` context cannot wire it at all, which is why reachable is strictly
+# tighter than posture here rather than a restatement of it.
+demo-mcp:
+	uv run trifecta-lens --trace fixtures/demo_mcp_trace.otlp.json \
+		--inventory fixtures/inventory.json \
+		--findings out/demo_mcp.findings.ndjson \
+		--svg out/demo_mcp.svg
 
 # Human-run only (task 1.2). Makes real model calls: needs the `demo` extra
 # (the Anthropic SDK) and ANTHROPIC_API_KEY in your environment. Fails cleanly

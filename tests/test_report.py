@@ -52,11 +52,20 @@ def test_report_shows_the_two_leg_family_as_not_the_trifecta() -> None:
     assert "not observed" in text
 
 
-def test_report_states_that_only_the_realized_tier_ran() -> None:
-    """Tier honesty: silence from a tier we did not run is not a clean bill."""
+def test_a_trace_only_run_reports_the_other_tiers_as_NOT_RUN() -> None:
+    """Tier honesty: silence from a tier we did not run is not a clean bill.
+
+    With no `--inventory`, posture and reachable have no input. The report must say
+    they did NOT RUN — never print an empty posture section that a reader could take
+    for "nothing found" (SPEC.md §5; task 2.12).
+    """
     text = _report(ANCHOR)
-    assert "realized" in text.lower()
+    assert "NOT RUN" in text
+    assert "no tool inventory was given" in text
     assert "posture" in text.lower() and "reachable" in text.lower()
+    # ...and it must not fabricate a clean result for them.
+    assert "[POSTURE]" not in text
+    assert "[REACHABLE]" not in text
 
 
 def test_report_states_the_verbatim_only_scope() -> None:
