@@ -17,6 +17,15 @@ from typing import Any, Final, Protocol, TextIO
 
 from trifecta_lens.roles import Role
 
+#: The findings NDJSON schema version (SPEC.md §7.1). This is a **public
+#: contract**: it rides in-band on every finding line because the append-stream
+#: has no header, so a consumer parsing one line must be able to tell which
+#: schema it is reading. Adding an optional field is a minor bump and consumers
+#: must ignore unknown fields; removing/renaming/retyping is a major bump. The
+#: frozen key sets are enforced by `tests/test_findings_schema.py` against
+#: `schema/findings.schema.json`, so a field cannot move without this moving too.
+SCHEMA_VERSION: Final[str] = "1.0"
+
 #: The three tiers (SPEC.md §5). Kept explicit so a lower tier can never silently
 #: inherit realized's language or weight (CLAUDE.md invariant 3).
 TIER_REALIZED: Final[str] = "realized"
@@ -111,6 +120,7 @@ class Finding:
             "path": list(self.path),
             "path_basis": self.path_basis,
             "path_edges": [edge.to_dict() for edge in self.path_edges],
+            "schema_version": SCHEMA_VERSION,
             "scope": self.scope,
             "sink": {"event": self.sink_event, "tool": self.sink_tool},
             "summary": self.summary,
@@ -204,6 +214,7 @@ class CapabilityFinding:
             "legs_absent": list(self.legs_absent),
             "legs_present": list(self.legs_present),
             "note": self.note,
+            "schema_version": SCHEMA_VERSION,
             "scope": self.scope,
             "sink": {"tool": self.sink_tool},
             "summary": self.summary,

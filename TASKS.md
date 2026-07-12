@@ -481,12 +481,63 @@ tiered and disclosed; "point it at your own agent" is **true**, not aspirational
 OTLP adapter to Phase 3. What we do *not* do is claim "point it at your own agent"
 while only our own hand-shaped JSONL loads.
 
-## Phase 3 — Harden for public  *(provisional)*
+## Phase 3 — Harden for public launch
 
-- README with the documented-incident citations + the honesty/limitations
-  section; `CONTRIBUTING.md` framing a catalog entry as the contribution path.
-- Swappable-payload docs; `pipx`/`uvx` install; **freeze the findings NDJSON
-  schema** as a public contract; benign-fixture suite proving low FP noise.
+> Sharpened to PR granularity in the Phase 3 planning conversation (2026-07-13),
+> once Phase 2's exit was met. **The launch-claim fork is resolved: framing C —
+> the tier-gap ("could, but didn't") is the hero; realized-trifecta-in-the-wild
+> is NOT claimed; no injection-capture attempt** (operator decision; the honest
+> weaker claim, chosen deliberately). Recorded as **D10** in `DECISIONS.md`,
+> landing in the 3.1 PR. Plan: `~/.claude/plans/sorted-knitting-corbato.md`.
+
+**Fork-gated (framing C):**
+
+- [ ] **3.1 README + honesty/limitations section.** Rewrite the Phase-0 stub to
+  the launch README under framing C: headline the reachable-vs-realized "could,
+  but didn't" gap on real artifacts; realized-trifecta-in-the-wild not claimed.
+  Carry the three-tier defs, the four honest gaps (`ROADMAP.md`: RAG/LLM ingest
+  not built, realized anchor is direct-instruction not injection, action-hijack
+  catalogued but unaccepted, verbatim-only), and `worked_example` labeled
+  hand-authored. Append D10 to `DECISIONS.md`. *Done when the honesty gate scans
+  the rendered README and the banned-token / no-overclaim checks pass on it.*
+- [ ] **3.2 — DROPPED.** No injection-capture attempt (operator declined the
+  spend). Recorded so the decision is legible, not silently skipped.
+
+**Fork-independent:**
+
+- [x] **3.3 Freeze the findings NDJSON schema as a public contract.** Document the
+  realized and capability line shapes as a **versioned** schema; a test fails if a
+  field is added/removed/renamed without a version bump. **Spec-first:** SPEC.md
+  §7.1. — `SCHEMA_VERSION = "1.0"` rides **in-band** on every line (the
+  append-stream has no header, so a consumer parsing one line must know its
+  contract). `schema/findings.schema.json` is the machine-readable contract;
+  `tests/test_findings_schema.py` pins three things together — the emitted keys
+  (frozen key sets), the schema file (must declare exactly those keys), and every
+  golden line (validated against the published schema by a zero-dependency stdlib
+  checker, so no `jsonschema` dep is added and the one-screen dep tree stays a
+  feature). Compatibility policy documented: additive ⇒ minor bump + ignore
+  unknown fields; removal/rename/retype ⇒ major bump. Goldens regenerated (the
+  one added `schema_version` field, visible in the diff).
+- [ ] **3.4 Primary-source-verify the documented-incident citations.** No
+  citations exist in the repo yet, so this **establishes** the verified set (not
+  audits an existing one): each incident checked against its primary source,
+  landed with links only where it holds, with an explicit note of what it does
+  and does not demonstrate. Consumed by 3.1. *Done when the citations file exists
+  and every entry links a primary source.*
+- [ ] **3.5 `CONTRIBUTING.md` — the catalog-entry flywheel.** Frame "add a catalog
+  entry" as the contribution path (2.13 proved a stranger's server is covered by
+  editing data, not code). *(Note: a `CONTRIBUTING.md` stub already exists.)*
+- [ ] **3.6 `pipx` / `uvx` install path.** Package so a stranger runs it on their
+  own agent in ~60s (the exit). *Done when the console-script installs and runs
+  from a clean environment.*
+- [ ] **3.7 Benign-fixture suite — low-false-positive evidence.** Extend the
+  benign corpus so "low FP noise" is a **measured** claim (extends 2.1's threshold
+  curve and the load-bearing-silence triage fixtures), not an assertion.
+
+**Suggested order:** 3.3 (done), 3.4 + 3.7 (evidence, longest lead), then
+3.5 / 3.6 (packaging), then 3.1 (README) last so it can cite the frozen schema
+and verified citations.
+
 - **Exit:** a stranger installs and runs it on their own agent in ~60s. Launch.
 
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*

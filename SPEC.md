@@ -328,11 +328,40 @@ defined in `FIXTURES.md`.
   This is how a user extends coverage to their own stack without touching code.
 
 **Outputs**
-- Findings **NDJSON** (stable schema): one finding object per line, keys sorted
-  (`sort_keys=True`), **emitted as findings are found** — an append-stream,
-  never a monolithic end-of-run document (`DESIGN.md` §6). Fields: family,
-  tier, legs with citing catalog entries, path (for realized), masked values,
-  confidence note.
+- Findings **NDJSON** (frozen public schema, v1): one finding object per line,
+  keys sorted (`sort_keys=True`), **emitted as findings are found** — an
+  append-stream, never a monolithic end-of-run document (`DESIGN.md` §6).
+
+### 7.1 The frozen findings schema (public contract)
+
+The NDJSON line shape is a **public API**, versioned and frozen as of v1. The
+machine-readable contract is `schema/findings.schema.json` (JSON Schema); this
+section is its prose companion, and `tests/test_findings_schema.py` fails if the
+code, the schema file, and this section ever disagree.
+
+- **In-band version.** Every line carries `schema_version` (currently `"1.0"`).
+  The NDJSON stream has no header, so a consumer parsing a single line must be
+  able to tell which contract it is reading; the version rides on the line.
+- **Two line variants**, discriminated by `tier`:
+  - **Realized** (`tier: "realized"`) — evidence from the trace. Keys:
+    `schema_version`, `tier`, `family`, `summary`, `note`, `scope`, `sink`
+    (`{event, tool}`), `path`, `path_edges` (`[{from, to, basis}]`),
+    `path_basis`, `legs` (`[{role, event, tool, note, catalog_entry}]`),
+    `legs_observed`, `legs_not_observed`, `masked_values`, `detected_under`
+    (`{match, min_value_chars, normalization}`).
+  - **Capability** (`tier: "posture" | "reachable"`) — read from the inventory,
+    nothing observed. Keys: `schema_version`, `tier`, `family`, `summary`,
+    `note`, `scope`, `sink` (`{tool}`), `context` (`{id, provenance}`), `legs`
+    (`[{role, tools:[{tool, note, catalog_entry}]}]`), `legs_present`,
+    `legs_absent`, `disclosure`. A capability line **structurally cannot** carry
+    realized's evidence keys (`path*`, `masked_values`, `legs_observed`,
+    `detected_under`) — it is a different type with nowhere to put them
+    (`CLAUDE.md` invariant 3).
+- **Compatibility policy.** Adding an optional field is a **minor** bump
+  (`1.0 → 1.1`); consumers **must ignore unknown fields**. Removing, renaming,
+  or retyping a field, or changing a field's meaning, is a **major** bump
+  (`1.x → 2.0`). The frozen key sets are enforced by test, so no field can move
+  without the version moving with it.
 - Human report: tiered, each finding labeled with its tier badge.
 - SVG: the path visualization (the shareable artifact).
 - SARIF: fast-follow, for CI / code-scanning surfaces.
