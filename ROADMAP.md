@@ -118,7 +118,7 @@ things we must not imply we have):
 - **README + the limitations section are Phase 3**, and the findings NDJSON schema
   is not frozen until then.
 
-## Phase 3 — Harden for public launch  *(provisional)*
+## Phase 3 — Harden for public launch
 README with the documented-incident citations and the honesty section;
 `CONTRIBUTING.md` framing catalog entries as the contribution path (the
 flywheel); swappable-payload story; `pipx`/`uvx` install; findings NDJSON schema
@@ -133,6 +133,23 @@ discover it during launch week.
 - **Shareable:** the launch (HN / Show, social, the awesome-lists). This is the
   public moment — the first phase whose shareable is external, not an internal
   screenshot.
+
+### Phase 3 in progress (2026-07-13)
+
+Planned in the Phase 3 planning conversation, sharpened to PR granularity in
+`TASKS.md` (3.1–3.7). **The launch-claim fork is resolved: framing C — the
+tier-gap ("could, but didn't") is the hero; realized-trifecta-in-the-wild is NOT
+claimed; no injection-capture attempt** (the honest weaker claim, chosen
+deliberately; recorded as **D10** in `DECISIONS.md`, landing with the README).
+
+- **Shipped to `main`** (green, 231 tests): **3.3** findings NDJSON schema frozen
+  as a public contract (in-band `schema_version`); **3.4** `INCIDENTS.md`
+  primary-source-verified incidents (EchoLeak CVE-2025-32711; GitHub MCP /
+  Invariant Labs) + the Willison concept source; **3.7** benign FP corpus —
+  8 benign traces, 0 realized false positives, each silence load-bearing.
+- **Remaining:** **3.5** `CONTRIBUTING.md` flywheel; **3.6** `pipx`/`uvx` install;
+  **3.1** the launch README (framing C), landed last so it can cite the frozen
+  schema and the verified incidents.
 
 ## Phase 4 — Fast-follow: action hijack + CI surface  *(provisional)*
 Action-hijack family (source → `sink:impact`), **posture + reachable only** —
