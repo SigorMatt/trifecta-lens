@@ -83,9 +83,13 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   needed; 1.3 is the anchoring test `tests/test_ingest.py`: all 5 spans, vault
   outputs on s1/s3, webhook inputs on s2/s4, ancestry from `parent_id`, sorted
   by `start_time`.
-- [ ] **1.4 Hardcoded labeling (slice-only).** Assign source / sensitive /
-  exfil roles to the three demo tools directly. Tag `# TEMP: catalog in P2`.
-  *Done when the three demo events carry the right roles.*
+- [x] **1.4 Hardcoded labeling (slice-only).** Assign source / sensitive /
+  exfil roles to the demo tools directly. Tag `# TEMP: catalog in P2`.
+  *Done when the demo events carry the right roles.* — `trifecta_lens/roles.py`
+  (the role alphabet) + `trifecta_lens/labeling.py` (a slice-local **data
+  table**, not code paths: `vault`→`sensitive_data`, `webhook`→`sink:exfil`).
+  **No span is labeled `untrusted_source`** — the anchor has none, and inventing
+  one to make the trifecta accept is the mislabeling this project must not do.
 - [ ] **1.5 Value extraction + verbatim taint** (`SPEC.md` §6). Extract the
   secret from the vault span; normalized-exact match into the webhook span
   inputs. *Done when the secret is detected crossing vault→webhook and is NOT
