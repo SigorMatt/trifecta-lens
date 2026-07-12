@@ -1,13 +1,24 @@
-"""Trace-fixture loader: JSONL spans -> Event stream (FIXTURES.md; SPEC.md §7).
+"""Trace loaders: spans -> Event stream (FIXTURES.md; SPEC.md §7).
 
 Stage 1 front-end (DESIGN.md §5): all parsing mess is confined here. The
-attribute lookups are kept in one place (the ``_ATTR_*`` constants) so the
-Phase 2+ OTLP adapter is a new front-end, not a rewrite.
+attribute lookups are kept in one place (the ``_ATTR_*`` constants) so a second
+front-end is a *new function*, not a rewrite. There are two:
+
+* :func:`load_trace` — the Phase 1 **flat** JSONL shape (one hand-authorable span
+  per line, attributes already flat).
+* :func:`load_otlp_trace` — the **real OTLP/JSON** shape a real exporter emits
+  (nested ``resourceSpans[].scopeSpans[].spans[]``; each attribute is
+  ``{key, value:{stringValue}}``). This is task 2.7, built against the real
+  Checkpoint D capture (``DECISIONS.md`` D9). It decodes the OTLP envelope into
+  the same intermediate span shape :func:`load_trace` uses and shares the one
+  attribute->Event mapping — the engine never learns there were two formats.
 
 Reads local files only — never a network connection (CLAUDE.md invariant 1).
 """
 
+import base64
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -111,5 +122,115 @@ def load_trace(path: str | Path) -> list[Event]:
         if not isinstance(span, dict):
             raise MalformedSpanError(f"line {line_no}: span is not a JSON object")
         events.append(_event_from_span(span, line_no))
+    events.sort(key=lambda e: (e.ts, e.id))
+    return events
+
+
+# --- OTLP/JSON front-end (task 2.7) -----------------------------------------
+#
+# Real OpenTelemetry exporters emit OTLP, whose JSON form nests spans under
+# resource/scope and encodes every attribute as ``{key, value:{<type>Value}}``.
+# We decode that envelope into the SAME intermediate span dict the flat loader
+# consumes, then hand each to ``_event_from_span`` — so the attribute->Event
+# mapping, the payload-vs-absent distinction, and the span-kind requirement are
+# defined once, not twice (FIXTURES.md: a new front-end, not a rewrite).
+
+# OTLP status codes (opentelemetry.proto.trace.v1). Only ERROR is not "OK".
+_OTLP_STATUS_ERROR = "STATUS_CODE_ERROR"
+
+# OTLP AnyValue scalar variants we read (camelCase, as MessageToDict emits).
+# v1 keys only on string attributes; the numeric/bool variants are decoded for
+# completeness so an unexpected type does not silently vanish.
+_ANYVALUE_SCALARS = ("stringValue", "intValue", "boolValue", "doubleValue")
+
+
+def _hex_id(raw: str | None) -> str | None:
+    """Decode an OTLP/JSON base64 span/trace id to hex; empty/absent -> None.
+
+    Only equality matters for ids (FIXTURES.md); hex is the conventional,
+    readable form, and ``spanId``/``parentSpanId`` decode consistently so the
+    parent chain still links.
+    """
+    if not raw:
+        return None
+    try:
+        return base64.b64decode(raw).hex()
+    except (ValueError, TypeError) as exc:
+        raise MalformedSpanError(f"span id {raw!r} is not valid base64: {exc}") from exc
+
+
+def _anyvalue(value: Any) -> Any:
+    """Extract the scalar from an OTLP ``AnyValue`` object."""
+    if not isinstance(value, dict):
+        return None
+    for variant in _ANYVALUE_SCALARS:
+        if variant in value:
+            return value[variant]
+    return None
+
+
+def _flatten_attributes(raw_attributes: Any, span_id: str) -> dict[str, Any]:
+    """Turn an OTLP ``attributes`` array into the flat ``{key: scalar}`` dict."""
+    if raw_attributes is None:
+        return {}
+    if not isinstance(raw_attributes, list):
+        raise MalformedSpanError(
+            f"span {span_id!r}: OTLP 'attributes' is not an array"
+        )
+    flat: dict[str, Any] = {}
+    for attr in raw_attributes:
+        if not isinstance(attr, dict) or "key" not in attr:
+            raise MalformedSpanError(
+                f"span {span_id!r}: malformed OTLP attribute {attr!r}"
+            )
+        flat[attr["key"]] = _anyvalue(attr.get("value"))
+    return flat
+
+
+def _otlp_span_to_intermediate(span: dict[str, Any]) -> dict[str, Any]:
+    """Decode one OTLP span into the flat shape ``_event_from_span`` reads."""
+    span_id = _hex_id(span.get("spanId"))
+    if span_id is None:
+        raise MalformedSpanError("OTLP span missing 'spanId'")
+    try:
+        start_nanos = int(span["startTimeUnixNano"])
+    except (KeyError, ValueError, TypeError) as exc:
+        raise MalformedSpanError(
+            f"span {span_id!r}: missing/invalid 'startTimeUnixNano'"
+        ) from exc
+    status = span.get("status") or {}
+    return {
+        "span_id": span_id,
+        "parent_id": _hex_id(span.get("parentSpanId")),
+        "name": span.get("name", span_id),
+        "start_time": start_nanos / 1e9,
+        "status": "ERROR" if status.get("code") == _OTLP_STATUS_ERROR else "OK",
+        "attributes": _flatten_attributes(span.get("attributes"), span_id),
+    }
+
+
+def _iter_otlp_spans(document: Any) -> Iterator[dict[str, Any]]:
+    """Walk resourceSpans[].scopeSpans[].spans[] of an OTLP/JSON document."""
+    if not isinstance(document, dict):
+        raise MalformedSpanError("OTLP document is not a JSON object")
+    for resource_spans in document.get("resourceSpans", []):
+        for scope_spans in resource_spans.get("scopeSpans", []):
+            yield from scope_spans.get("spans", [])
+
+
+def load_otlp_trace(path: str | Path) -> list[Event]:
+    """Load a real OTLP/JSON trace document into a deterministic Event list.
+
+    Same output contract as :func:`load_trace` (Events sorted by ``(ts, id)``),
+    so the labeling, taint and engine stages run on it unchanged: only the
+    front-end differs (FIXTURES.md). MCP tool names arrive **server-qualified**
+    (``<server>__<tool>``) in ``tool.name`` and are carried through as
+    ``Event.tool`` verbatim (SPEC.md §2).
+    """
+    document = json.loads(Path(path).read_text(encoding="utf-8"))
+    events = [
+        _event_from_span(_otlp_span_to_intermediate(span), line_no=i)
+        for i, span in enumerate(_iter_otlp_spans(document), start=1)
+    ]
     events.sort(key=lambda e: (e.ts, e.id))
     return events

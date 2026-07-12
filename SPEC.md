@@ -25,7 +25,7 @@ Event:
   ts:           float          # start time
   actor:        str            # agent / sub-agent / tool that acted
   action:       str            # e.g. tool_call, tool_result, llm_msg
-  tool:         str | None     # tool name when applicable
+  tool:         str | None     # tool identity when applicable (see below)
   inputs:       dict | None    # tool args / message content (payload-level)
   outputs:      dict | None    # tool result / model output (payload-level)
   roles:        set[str]       # role tags assigned by the catalog (§4)
@@ -34,6 +34,16 @@ Event:
 
 `inputs`/`outputs` require **payload-level** spans. If absent, realized
 detection is `UNAVAILABLE` for that event (see §7 degradation).
+
+**Tool identity is server-qualified under MCP.** A real MCP trace names a tool by
+its server (two servers may each expose a `read`), so `tool` carries the
+**`<server>__<tool>`** form the instrumentation emits (e.g.
+`filesystem__read_text_file`) — the same name space the inventory records, which
+is what lets a trace and an inventory join on shared identity (§7,
+`DECISIONS.md` D8). The Phase 1 flat fixtures carry bare names (`vault`,
+`webhook`); both are valid `tool` values. The OTLP front-end
+(`load_otlp_trace`, task 2.7) carries `tool.name` through verbatim — qualifying is
+the instrumentation's job, not the loader's, and the engine still sees only roles.
 
 ## 3. Finding families (one engine)
 

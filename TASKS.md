@@ -301,14 +301,31 @@ weakening the tier.
   **composability join** — the real trace's tool names ⊆ the inventory's. SPEC §7
   updated with the qualified-identity join; the D6 stage-seam gate now classifies
   `inventory.py` as Stage 1.
-- [ ] **2.7 Real OTLP / OpenInference front-end** (D9). A new Stage 1 adapter —
+- [x] **2.7 Real OTLP / OpenInference front-end** (D9). A new Stage 1 adapter —
   never an engine change (`FIXTURES.md`). Built against the **real captured trace**,
   not an imagined one. Handles nested OTLP attribute arrays, MCP tool
   **namespacing** (server-qualified tool identity — an `Event` shape change, so:
   spec-first on `SPEC.md` §2), and the richer keys real traces carry
   (`retrieval.documents.*` → RAG reads as `untrusted_source`; LLM message
   payloads). *Done when the real captured trace loads to the expected Event stream
-  and the existing realized detector runs on it unchanged.*
+  and the existing realized detector runs on it unchanged.* — `load_otlp_trace` in
+  `trifecta_lens/loader.py`: decodes the OTLP/JSON envelope
+  (`resourceSpans[].scopeSpans[].spans[]`, base64 span ids → hex, nanos → seconds,
+  `{key, value:{stringValue}}` attribute arrays) into the **same intermediate span
+  shape** the flat loader consumes, then reuses `_event_from_span` — one
+  attribute→Event mapping, not two. `tests/test_otlp_loader.py` proves the **real**
+  Checkpoint D trace loads to the expected 3-Event stream (agent root + two tool
+  children, ancestry preserved) and that the **unmodified** `detect_realized` fires
+  exactly one `sensitive_to_exfil_sink` finding (temporal basis, secret masked)
+  once the events are labeled. Spec-first: `SPEC.md` §2 (server-qualified tool
+  identity) + `FIXTURES.md` (OTLP front-end landed). **Scope, stated honestly:**
+  the adapter handles the keys the real trace actually carries (TOOL/AGENT spans
+  with the flat OI payload keys). RAG `retrieval.documents.*` and LLM-message
+  payload ingestion are **not** built — no captured fixture carries them yet, and
+  building an ingest path no real trace exercises is the speculative breadth
+  `CLAUDE.md` forbids (the same "a real format in hand first" rule the phase header
+  applies to `OPEN_QUESTIONS.md` §5). Non-TOOL spans already load harmlessly
+  (tool=None); RAG/LLM ingestion lands when a real trace carries them.
 
 ### Track C — the engine and the two new tiers *(gated on Checkpoint D)*
 

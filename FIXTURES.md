@@ -11,10 +11,14 @@ simplified, hand-authorable JSON object whose attribute keys mirror the
 **OpenInference** semantic conventions, so the ingester is exercised against the
 same attribute names real instrumentation emits.
 
-> v1 parses this simplified span shape. A full OTLP adapter (real exporter
-> output, nested `{key, value:{stringValue}}` attribute arrays) is Phase 2+.
-> Keep the ingester's attribute lookups in one place so adding the OTLP adapter
-> later is a new front-end, not a rewrite.
+> `load_trace` parses this simplified flat span shape. The full OTLP adapter
+> (real exporter output, nested `resourceSpans[].scopeSpans[].spans[]` with
+> `{key, value:{stringValue}}` attribute arrays) **landed in task 2.7** as
+> `load_otlp_trace`, built against the real Checkpoint D capture
+> (`fixtures/demo_mcp_trace.otlp.json`). It is a **new front-end**, not a
+> rewrite: it decodes the OTLP envelope into the same intermediate span shape and
+> reuses this one attribute->Event mapping, so the engine never learns there were
+> two formats. MCP tool names arrive server-qualified (`<server>__<tool>`).
 
 ## Span record (one JSON object per line)
 
