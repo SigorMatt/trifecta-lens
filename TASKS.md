@@ -177,7 +177,7 @@ weakening the tier.
 
 ### Track A — the existing realized tier *(independent of Checkpoint D; start now)*
 
-- [ ] **2.1 Containment + disclosed extraction config** (D3 + D4; resolves
+- [x] **2.1 Containment + disclosed extraction config** (D3 + D4; resolves
   `OPEN_QUESTIONS.md` §§1–2). **Spec-first:** reconcile `SPEC.md` §6 ("Match =
   exact"), `SPEC.md` §5 step 3 ("appears in") and `DESIGN.md` §8 ("substring") to
   **one** wording — containment of the untransformed value. Promote
@@ -186,7 +186,14 @@ weakening the tier.
   2: the catalog stays the only knob). *Done when: the three passages agree; every
   finding carries `detected_under`; and the constant ships with a **measured**
   false-positive justification against the benign corpus — a number, not an
-  assertion.*
+  assertion.* — `trifecta_lens/extraction.py`; `detected_under` on every finding
+  and in every report (**including silent ones** — "no finding" is only auditable
+  if you know the bounds). **The first measurement refuted the claim:** the benign
+  corpus gave zero false positives at *every* threshold, even 1, so `8` was
+  justified by nothing. Added `fixtures/benign_short_value_collision.jsonl` (a
+  4-char vault value colliding with a record count at the sink), which makes the
+  curve real: FP at ≤4, silent at ≥5, true positives survive to 16 — so the
+  shipped 8 sits **in the middle of the safe window**, with margin on both sides.
 - [ ] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
   **Spec-first:** `SPEC.md` §5, `DESIGN.md` §1. Each path edge carries its basis
   (`causal` from real `parent_id` ancestry, `temporal` from ordering alone); the

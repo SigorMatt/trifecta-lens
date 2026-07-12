@@ -172,20 +172,42 @@ escalating the verb.
 
 ## 6. Taint matching (v1)
 
-> **NOTE (Phase 2): see `OPEN_QUESTIONS.md` §1.** "Match = exact" below is in
-> tension with `DESIGN.md` §8 ("normalized **substring** match") and with §5's
-> realized step 3 ("a tagged value **appears in** a sink span's `inputs`"). Phase
-> 1 implements containment of the untransformed value; the three passages must be
-> reconciled to one wording in Phase 2.
-
 - A `Value` is a string extracted from span payloads (secret-like tokens, file
   contents, PII matches, or whole tool outputs).
-- Match = **exact** after light normalization (trim, case-fold, collapse
-  whitespace). Nothing more.
+- **Match = CONTAINMENT of the untransformed value** (`DECISIONS.md` D3): the
+  value matches when it **occurs in** a payload string of the sink, after light
+  normalization (trim, case-fold, collapse whitespace).
+
+  **"Verbatim" constrains transformation *of the value*, not the surrounding
+  payload.** A secret pasted into a larger request body has still reached the
+  sink; requiring the value to *equal* a whole field would silently miss the
+  common real case. This is what §5's realized step 3 ("a tagged value **appears
+  in** a sink span's `inputs`") and `DESIGN.md` §8 ("normalized substring match")
+  already meant. Whole-field equality is the strictly weaker special case.
+
 - **Explicitly not handled in v1:** encoded (base64/hex), split/concatenated,
   summarized, or paraphrased values. These break verbatim matching by design.
   Realized therefore covers the *verbatim-exfil subset only* — state this in the
   README and in `--help`. Do not attempt to paper over it.
+
+### 6.1 Extraction parameters — fixed, and disclosed
+
+Matching is bounded by declared **extraction parameters** (`DESIGN.md` §4,
+`DECISIONS.md` D4). They are **fixed**, not user-tunable: the catalog stays the
+only knob (invariant 2). But they **must be disclosed**, because an undisclosed
+threshold silently bounds what the realized tier can see — which makes "no
+finding" un-auditable, the same honesty failure as an overclaim, pointed the
+other way.
+
+| Parameter | v1 value | Meaning |
+|---|---|---|
+| `min_value_chars` | 8 | Values shorter than this are not tracked — a short string collides with ordinary payload text and yields noise, not evidence. |
+| `match` | `containment` | Per above. |
+| `normalization` | `trim`, `casefold`, `collapse-whitespace` | Light only. Nothing more. |
+
+Every finding carries these under a **`detected_under`** field, and the human
+report states them. The `min_value_chars` value is justified by a **measured**
+false-positive rate over the benign corpus — a number, not an assertion.
 
 ## 7. Input/output contracts
 

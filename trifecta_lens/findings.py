@@ -56,9 +56,14 @@ class Finding:
     masked_values: tuple[str, ...]
     note: str
     scope: str
+    #: The declared extraction parameters that bounded this search (SPEC.md
+    #: §6.1). Present on every finding so "what could this even have seen?" is
+    #: answerable from the finding alone.
+    detected_under: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "detected_under": dict(self.detected_under),
             "family": self.family,
             "legs": [leg.to_dict() for leg in self.legs],
             "legs_not_observed": list(self.legs_not_observed),

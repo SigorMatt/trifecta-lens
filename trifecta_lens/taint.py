@@ -12,14 +12,9 @@ known, stated limit, never papered over (CLAUDE.md invariant 5).
 
 from typing import Any, Final
 
+from trifecta_lens.extraction import EXTRACTION, ExtractionConfig
 from trifecta_lens.model import Event, Value
 from trifecta_lens.roles import TAINT_BEARING
-
-#: Extraction parameter (DESIGN.md §4): values shorter than this are not tracked
-#: — a 3-character string would collide with ordinary payload text and produce
-#: noise, not evidence. Disclosed in the finding's ``scope`` note so a reader
-#: knows what was and was not tracked.
-MIN_VALUE_CHARS: Final[int] = 8
 
 _MASK_PREFIX_CHARS: Final[int] = 8
 
@@ -55,7 +50,9 @@ def _string_leaves(payload: dict[str, Any] | None) -> list[str]:
     return leaves
 
 
-def extract_values(event: Event) -> list[Value]:
+def extract_values(
+    event: Event, config: ExtractionConfig = EXTRACTION
+) -> list[Value]:
     """The taint-bearing values an event puts into the register (DESIGN.md §2).
 
     Values are extracted from the OUTPUTS of events labeled ``untrusted_source``
@@ -70,14 +67,18 @@ def extract_values(event: Event) -> list[Value]:
 
     values: list[Value] = []
     for leaf in _string_leaves(event.outputs):
-        if len(leaf.strip()) < MIN_VALUE_CHARS:
+        if len(leaf.strip()) < config.min_value_chars:
             continue
         if leaf not in values:
             values.append(leaf)
     return values
 
 
-def value_in_payload(value: Value, payload: dict[str, Any] | None) -> bool:
+def value_in_payload(
+    value: Value,
+    payload: dict[str, Any] | None,
+    config: ExtractionConfig = EXTRACTION,
+) -> bool:
     """Whether ``value`` occurs VERBATIM in ``payload`` (SPEC.md §5 step 3).
 
     Containment, not whole-field equality: a secret pasted into a larger request
@@ -85,7 +86,7 @@ def value_in_payload(value: Value, payload: dict[str, Any] | None) -> bool:
     *transformation* of the value (SPEC.md §6) — never the surrounding text.
     """
     needle = normalize(value)
-    if len(needle) < MIN_VALUE_CHARS:
+    if len(needle) < config.min_value_chars:
         return False
     return any(needle in normalize(leaf) for leaf in _string_leaves(payload))
 

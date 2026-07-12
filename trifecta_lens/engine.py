@@ -26,6 +26,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Final
 
+from trifecta_lens.extraction import EXTRACTION, ExtractionConfig
 from trifecta_lens.findings import TIER_REALIZED, Finding, Leg
 from trifecta_lens.labeling import note_for_role
 from trifecta_lens.model import Event, Value
@@ -89,6 +90,7 @@ def _accept(
     register: dict[str, _Tainted],
     legs_seen: dict[Role, Event],
     seen: dict[str, Event],
+    config: ExtractionConfig,
 ) -> Finding | None:
     """The guarded accepting transition. ``None`` when the machine does not accept.
 
@@ -97,7 +99,10 @@ def _accept(
     acceptance** (DESIGN.md §2).
     """
     # The guard: some tainted value occurs verbatim in this sink's inputs.
-    matched = [t for t in register.values() if value_in_payload(t.value, sink.inputs)]
+    matched = [
+        t for t in register.values()
+        if value_in_payload(t.value, sink.inputs, config)
+    ]
 
     # Exfil is about SENSITIVE data leaving. A value that reached the sink but
     # originated only at an untrusted source is not an exfil finding at any
@@ -144,10 +149,13 @@ def _accept(
         masked_values=tuple(sorted({mask(t.value) for t in sensitive})),
         note=NOTE_TRIFECTA if family == FAMILY_TRIFECTA else NOTE_TWO_LEG,
         scope=SCOPE,
+        detected_under=config.to_dict(),
     )
 
 
-def detect_realized(events: Iterable[Event]) -> Iterator[Finding]:
+def detect_realized(
+    events: Iterable[Event], config: ExtractionConfig = EXTRACTION
+) -> Iterator[Finding]:
     """Fold the labeled event stream, yielding realized findings as they are found.
 
     Events must arrive in the loader's deterministic order (sorted by
@@ -162,14 +170,14 @@ def detect_realized(events: Iterable[Event]) -> Iterator[Finding]:
         # 1. Accept first: the ancestry is everything strictly before this event,
         #    so a sink can never be tainted by its own payload.
         if SINK_EXFIL in event.roles:
-            finding = _accept(event, register, legs_seen, seen)
+            finding = _accept(event, register, legs_seen, seen, config)
             if finding is not None:
                 yield finding
 
         # 2. Extend the register with values this event contributes.
         taint_roles = event.roles & TAINT_BEARING
         if taint_roles:
-            for value in extract_values(event):
+            for value in extract_values(event, config):
                 register[normalize(value)] = _Tainted(
                     value=value,
                     origin=event.id,

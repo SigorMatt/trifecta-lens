@@ -44,6 +44,19 @@ worked_example.jsonl
         untrusted_source leg — so it is what exercises the exfil_trifecta
         family's accepting path. Yields exactly one exfil_trifecta finding.
 
+benign_short_value_collision.jsonl
+  authored: by hand (task 2.1)
+  shape: vault returns "4242" (a retention window, 4 chars) -> webhook body is
+         "nightly batch complete: 4242 records processed, 0 errors". The "4242"
+         at the sink is a COINCIDENCE -- a record count, not the vault value.
+  role: the fixture that makes min_value_chars MEASURABLE. Without it the benign
+        corpus produced zero false positives at EVERY threshold (even 1), so the
+        constant 8 was justified by nothing -- the corpus could not discriminate
+        it. With it the curve is real: FP at threshold <=4, silent at >=5, and
+        true positives survive to 16. The shipped 8 sits in the middle of that
+        window. A short value colliding with ordinary payload text is noise, not
+        evidence, and this fixture is what proves the threshold earns its place.
+
 benign_no_flow.jsonl
   authored: by hand (task 1.9)
   shape: vault (secret) -> webhook, but the webhook body is "integration key
