@@ -97,6 +97,12 @@ path; the matched value (masked) is the evidence.
   rules) are a possible later, cautiously exposed third layer — Phase 2+, each
   knob disclosed in findings output ("detected under config X").
 
+> **NOTE (Phase 2): see `OPEN_QUESTIONS.md` §2.** Phase 1 already introduced such
+> a knob — `MIN_VALUE_CHARS = 8` in `trifecta_lens/taint.py` — and it is **not**
+> disclosed per-finding. Phase 2 must either disclose it or promote it into this
+> exposed layer properly; an undisclosed threshold silently bounds what realized
+> can see, which makes "no finding" un-auditable.
+
 ## 5. Two stages, one process
 
 - **Stage 1 — construction (front-end).** Pure functions: raw inputs → labeled

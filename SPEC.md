@@ -158,6 +158,12 @@ escalating the verb.
 
 ## 6. Taint matching (v1)
 
+> **NOTE (Phase 2): see `OPEN_QUESTIONS.md` §1.** "Match = exact" below is in
+> tension with `DESIGN.md` §8 ("normalized **substring** match") and with §5's
+> realized step 3 ("a tagged value **appears in** a sink span's `inputs`"). Phase
+> 1 implements containment of the untransformed value; the three passages must be
+> reconciled to one wording in Phase 2.
+
 - A `Value` is a string extracted from span payloads (secret-like tokens, file
   contents, PII matches, or whole tool outputs).
 - Match = **exact** after light normalization (trim, case-fold, collapse

@@ -148,6 +148,12 @@ Build the whole pipeline (ingest → label → detect → report → render) for
 
 ## Phase 2 — Generalize to the engine  *(provisional — sharpen after 1.9)*
 
+> **Read `OPEN_QUESTIONS.md` first.** Four spec/design ambiguities surfaced at
+> Checkpoint C and were deliberately left unresolved: exact-vs-substring
+> matching, the undisclosed `MIN_VALUE_CHARS` extraction parameter, the path
+> being temporal rather than causal, and a blind spot in the 0.8 architecture
+> gate. Each must be decided in the planning chat — **not silently in code.**
+
 - Extract the role **catalog** (data file: `match → role + subtype + note`,
   `SPEC.md` §4); replace the 1.4 hardcoded labels with catalog lookup. The
   catalog is the engine's labeling function — the only tunable layer
