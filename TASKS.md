@@ -90,10 +90,13 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   table**, not code paths: `vault`→`sensitive_data`, `webhook`→`sink:exfil`).
   **No span is labeled `untrusted_source`** — the anchor has none, and inventing
   one to make the trifecta accept is the mislabeling this project must not do.
-- [ ] **1.5 Value extraction + verbatim taint** (`SPEC.md` §6). Extract the
+- [x] **1.5 Value extraction + verbatim taint** (`SPEC.md` §6). Extract the
   secret from the vault span; normalized-exact match into the webhook span
   inputs. *Done when the secret is detected crossing vault→webhook and is NOT
-  detected in the benign fixture.*
+  detected in the benign fixture.* — `trifecta_lens/taint.py`. Matches at `s4`,
+  does **not** match at `s2` (placeholder), and does not match in either triage
+  fixture. Tests pin that transformed taint (base64 / split / paraphrase) does
+  **not** match — the v1 limit, stated, not papered over.
 - [ ] **1.6 Realized detector.** Emit a finding when a tainted value reaches the
   sink, with the ordered path and masked value. Findings serialize as NDJSON —
   one finding per line, `sort_keys=True`, written as found (`DESIGN.md` §6).
