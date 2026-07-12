@@ -63,10 +63,19 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   agent boring (`CLAUDE.md`: not a strawman). **Lives in `demo/`, outside the
   core package**, so its network/exec use never trips the 0.4 guard.
   *Done when a live run emits a payload-level span file.*
-- [ ] **1.2 Record + freeze the demo trace (`make demo`).** Capture one real
-  exploited run from 1.1; commit spans as `fixtures/demo_exfil.jsonl`. This one
-  file is the deterministic showcase **and** the realized test anchor **and**
-  the first shareable. *Done when `make demo` replays it with no model call.*
+- [x] **1.2 Record + freeze the demo trace (`make demo`).** Capture one real run
+  from 1.1; commit the spans as the frozen anchor. This one file is the
+  deterministic showcase **and** the realized test anchor **and** the first
+  shareable. *Done when `make demo` replays it with no model call.*
+  **As captured:** the committed anchor is `fixtures/demo_realized.jsonl` (not
+  the provisionally-named `demo_exfil.jsonl`) — a real **direct-instruction,
+  non-injection** run on Llama-3.3-70B in which the secret reaches the webhook
+  sink verbatim. It carries the vault→webhook flow twice (`s2` posts a
+  placeholder, `s4` posts the secret), and it has **no untrusted-source span**.
+  See `fixtures/demo_realized.provenance.md` and `demo/CAPTURE_LOG.md`: no
+  captured run exists in which an untrusted-source leg and a verbatim secret at
+  a sink co-occur. This is why the anchor supports the two-leg family, not the
+  trifecta (`SPEC.md` §3).
 - [ ] **1.3 Ingest.** Extend the 0.6 loader to full payload-level extraction
   (inputs/outputs) per `SPEC.md` §2. *Done when the demo fixture yields the
   expected Event stream.*
