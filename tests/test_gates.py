@@ -111,6 +111,41 @@ def test_no_per_tool_branches_in_core() -> None:
     )
 
 
+def test_no_causal_or_attack_language_in_rendered_output() -> None:
+    """The gate promised in this module's docstring, now that rendering exists.
+
+    Scanning core's string literals is not enough: the text a user actually reads
+    is assembled at runtime. Scan the real rendered artifacts — the human report
+    and the findings NDJSON — for every fixture we ship.
+    """
+    import json
+    from pathlib import Path
+
+    from trifecta_lens.engine import detect_realized
+    from trifecta_lens.labeling import label_events
+    from trifecta_lens.loader import load_trace
+    from trifecta_lens.report import format_report
+
+    fixture_dir = Path(__file__).resolve().parent.parent / "fixtures"
+    fixtures = sorted(fixture_dir.glob("*.jsonl"))
+    assert fixtures, "no fixtures to scan"
+
+    for fixture in fixtures:
+        events = label_events(load_trace(fixture))
+        findings = list(detect_realized(events))
+
+        report = format_report(findings, events)
+        assert not banned_tokens_in(report), f"{fixture.name} report: {report}"
+
+        for finding in findings:
+            line = finding.to_json_line()
+            assert not banned_tokens_in(line), f"{fixture.name} finding: {line}"
+            # The masked value is the only form a value may take in output.
+            assert "sk-demo-trifecta-lens-DO-NOT-USE-0000" not in line
+            assert "sk-demo-trifecta-lens-DO-NOT-USE-0000" not in report
+            json.loads(line)
+
+
 def test_honesty_gate_detects_banned_tokens() -> None:
     """The scanner itself must catch each banned form, or the gate rots."""
     assert banned_tokens_in("tainted data observed reaching webhook") == []

@@ -114,8 +114,15 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   **Acceptance verified:** anchor → exactly one `sensitive_to_exfil_sink`
   finding, sink `s4`, path `s3 → s4`, value masked; nothing on `s2`; no trifecta
   finding on the anchor; zero on both triage fixtures.
-- [ ] **1.7 Tiered human report** (realized only for the slice) with a tier
-  badge. *Done when it prints the masked verdict.*
+- [x] **1.7 Tiered human report** (realized only for the slice) with a tier
+  badge. *Done when it prints the masked verdict.* — `trifecta_lens/report.py`,
+  reachable via `trifecta-lens --trace <file>`. Prints `[REALIZED]
+  sensitive_to_exfil_sink (two-leg — NOT the trifecta)`, the path, the masked
+  value, and the legs observed / **not** observed. States that posture and
+  reachable did not run, and that no finding is not evidence of no flow.
+  Degrades honestly: a payload-less trace reports realized `UNAVAILABLE`, not
+  "no findings". The 0.8 honesty gate now scans the **rendered** report and
+  findings NDJSON for every shipped fixture, as its docstring promised.
 - [ ] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).
   Hand-positioned layout; no graphviz (`DESIGN.md` §8).
   *Done when `make demo` writes the SVG.*
