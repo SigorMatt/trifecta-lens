@@ -12,13 +12,16 @@ check:
 	uv run python -c "from trifecta_lens.loader import load_trace; n = len(load_trace('fixtures/worked_example.jsonl')); assert n == 4, f'expected 4 events, got {n}'"
 
 # Replay-only (task 1.2 done-when: "make demo replays it with no model call").
-# Loads the frozen realized-positive trace through the core loader and prints the
-# observed vault -> webhook flow with the secret masked. NO model call, NO
-# network, NO API key, NO demo extra — it replays committed spans. The realized
-# detector (task 1.6) is not built yet, so it emits NO finding, only a
-# pending-verdict line.
+# Replays the frozen anchor through the analyzer: prints the observed spans, then
+# runs the realized detector and writes the report, the findings NDJSON, and the
+# path SVG (tasks 1.6-1.8). NO model call, NO network, NO API key, NO demo extra
+# — it reads committed spans and writes local files. Deterministic: the same
+# input yields byte-identical outputs every run.
 demo:
 	uv run python -m demo.replay fixtures/demo_realized.jsonl
+	uv run trifecta-lens --trace fixtures/demo_realized.jsonl \
+		--findings out/demo_realized.findings.ndjson \
+		--svg out/demo_realized.svg
 
 # Human-run only (task 1.2). Makes real model calls: needs the `demo` extra
 # (the Anthropic SDK) and ANTHROPIC_API_KEY in your environment. Fails cleanly

@@ -123,9 +123,15 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   Degrades honestly: a payload-less trace reports realized `UNAVAILABLE`, not
   "no findings". The 0.8 honesty gate now scans the **rendered** report and
   findings NDJSON for every shipped fixture, as its docstring promised.
-- [ ] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).
+- [x] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).
   Hand-positioned layout; no graphviz (`DESIGN.md` §8).
-  *Done when `make demo` writes the SVG.*
+  *Done when `make demo` writes the SVG.* — `trifecta_lens/svg.py`; `make demo`
+  writes `out/demo_realized.svg` (+ `out/demo_realized.findings.ndjson`).
+  Renders `s3 (vault, sensitive_data) → s4 (webhook, sink:exfil)` on a red edge.
+  Because the SVG is the thing that gets screenshotted **out of context**, it
+  carries its own honesty: the `[REALIZED] sensitive_to_exfil_sink` badge,
+  "(two-leg — NOT the trifecta)", `not observed: untrusted_source`, the masked
+  value, and "flow observed, not causation".
 - [ ] **1.9 Benign fixture + tests + determinism.** A clean run that produces
   NO realized finding; pytest anchoring positive→realized and benign→none;
   re-run gives byte-identical findings. *Done when all green.*

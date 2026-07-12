@@ -6,6 +6,7 @@ anywhere (DESIGN.md §7) — piping the NDJSON stream onward is the user's job.
 """
 
 import argparse
+import sys
 from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
@@ -15,6 +16,7 @@ from trifecta_lens.findings import Finding, write_ndjson
 from trifecta_lens.labeling import label_events
 from trifecta_lens.loader import load_trace
 from trifecta_lens.report import format_report
+from trifecta_lens.svg import render_svg
 
 _SCOPE_HELP = (
     "v1 detects VERBATIM taint only: a value that was encoded, split, "
@@ -49,6 +51,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="write findings NDJSON here (default: alongside the report on stdout)",
     )
+    parser.add_argument(
+        "--svg",
+        type=Path,
+        help="write the path SVG here (written only when there is a finding)",
+    )
     return parser
 
 
@@ -67,6 +74,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # assembled at the end.
     findings: list[Finding] = []
     if args.findings is not None:
+        args.findings.parent.mkdir(parents=True, exist_ok=True)
         with args.findings.open("w", encoding="utf-8") as stream:
             for finding in detect_realized(events):
                 write_ndjson([finding], stream)
@@ -75,6 +83,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         findings = list(detect_realized(events))
 
     print(format_report(findings, events))
+
+    if args.svg is not None and findings:
+        args.svg.parent.mkdir(parents=True, exist_ok=True)
+        args.svg.write_text(render_svg(findings[0]), encoding="utf-8")
+        print(f"wrote {args.svg}", file=sys.stderr)
+
     return 0
 
 

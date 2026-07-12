@@ -27,6 +27,10 @@ venv/
 .env
 *.key
 
+# Analyzer output (`make demo` writes the report/findings/SVG here). Generated,
+# deterministic, and reproducible from the committed fixtures -- not source.
+out/
+
 # Scratch outputs from offline demo-plumbing smoke tests. NEVER the
 # authoritative fixtures/demo_exfil.jsonl (that one is human-recorded and
 # committed on purpose, task 1.2).
