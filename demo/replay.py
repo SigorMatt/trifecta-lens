@@ -9,10 +9,10 @@ stdout every run (events are printed in the loader's sorted order; no clocks, no
 timestamps in the output).
 
 It prints the OBSERVED flow — what the loaded spans literally contain — with the
-secret masked so the raw token never reaches stdout, and a final line stating
-that the realized detector (tasks 1.5/1.6) is not yet built: so NO finding is
-emitted and NO verdict is claimed. This shows flow; it does not assert an
-attack, a cause, or a detection (CLAUDE.md invariants 3-5).
+secret masked so the raw token never reaches stdout. It emits no finding and
+claims no verdict of its own: the realized detector is what does that, and
+`make demo` runs it immediately afterwards. This shows flow; it does not assert
+a cause or a detection (CLAUDE.md invariants 3-5).
 """
 
 from __future__ import annotations
@@ -111,7 +111,9 @@ def format_replay(events: list[Event]) -> str:
             "flow observed in trace: no vault value observed at a sink;"
         )
     lines.append(
-        "realized detector (task 1.6) not yet implemented — no finding emitted."
+        "this replay prints only what the spans literally contain. The realized "
+        "detector runs next (see the report below) — it, not this replay, is what "
+        "emits a finding."
     )
     return "\n".join(lines)
 

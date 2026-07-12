@@ -35,9 +35,10 @@ def test_replay_names_the_vault_webhook_flow(
     assert out.strip()  # non-empty
     assert "vault" in out
     assert "webhook" in out
-    # It states the observed flow and that no finding is emitted (verdict pending).
+    # It states the observed flow, and is explicit that IT emits no finding --
+    # the replay shows what the spans contain; the detector renders the verdict.
     assert "vault -> webhook" in out
-    assert "no finding emitted" in out
+    assert "realized detector" in out
 
 
 def test_replay_masks_the_secret(
