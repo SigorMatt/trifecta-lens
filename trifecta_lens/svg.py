@@ -16,7 +16,7 @@ from typing import Final
 from xml.sax.saxutils import escape
 
 from trifecta_lens.engine import FAMILY_TRIFECTA
-from trifecta_lens.findings import Finding
+from trifecta_lens.findings import BASIS_TEMPORAL, Finding
 from trifecta_lens.roles import SENSITIVE_DATA, SINK_EXFIL
 
 # Geometry (px). Everything below is derived from these.
@@ -26,7 +26,7 @@ _NODE_H: Final[int] = 68
 _GAP: Final[int] = 96
 _NODE_Y: Final[int] = 132
 _MIN_W: Final[int] = 720
-_HEIGHT: Final[int] = 300
+_HEIGHT: Final[int] = 320
 
 _INK: Final[str] = "#1b1f24"
 _MUTED: Final[str] = "#6a737d"
@@ -113,7 +113,7 @@ def render_svg(finding: Finding) -> str:
         parts.append(_node(x, leg.event, leg.tool, leg.role))
 
     edge_y = _NODE_Y + _NODE_H // 2
-    for x in xs[:-1]:
+    for i, x in enumerate(xs[:-1]):
         start, end = x + _NODE_W, x + _NODE_W + _GAP
         parts.append(
             f'<line x1="{start}" y1="{edge_y}" x2="{end}" y2="{edge_y}" '
@@ -121,7 +121,12 @@ def render_svg(finding: Finding) -> str:
         )
         # Centred in the gap so it never overruns the node it points at.
         mid = (start + end) // 2
-        parts.append(_text(mid, edge_y - 12, "verbatim", 11, _EDGE, anchor="middle"))
+        parts.append(_text(mid, edge_y - 26, "verbatim", 11, _EDGE, anchor="middle"))
+        # The arrow's BASIS, on the arrow itself. An unlabelled arrow between two
+        # boxes is read as causation, and this artifact travels without its
+        # report (DECISIONS.md D5).
+        basis = finding.path_edges[i].basis if i < len(finding.path_edges) else ""
+        parts.append(_text(mid, edge_y - 12, basis, 11, _MUTED, anchor="middle"))
 
     # Footer: the masked value, and the legs that were NOT observed.
     footer_y = _NODE_Y + _NODE_H + 44
@@ -133,8 +138,21 @@ def render_svg(finding: Finding) -> str:
         parts.append(
             _text(_MARGIN, footer_y + 22, f"not observed: {missing}", 13, _MUTED)
         )
-    disclaimer = "verbatim taint only; flow observed, not causation"
-    parts.append(_text(_MARGIN, footer_y + 44, disclaimer, 11, _MUTED))
+    # The disclaimer is the LAST thing that may ever be truncated: it is what
+    # stops a screenshot of this arrow from reading as a causal claim. Wrapped
+    # onto explicit lines rather than trusted to fit.
+    if finding.path_basis == BASIS_TEMPORAL:
+        disclaimer = (
+            "verbatim taint; the steps were observed in this ORDER — the trace",
+            "does not link them as parent/child. Flow observed, not causation.",
+        )
+    else:
+        disclaimer = (
+            "verbatim taint; the trace's own ancestry links these spans.",
+            "Flow observed, not causation.",
+        )
+    for i, line in enumerate(disclaimer):
+        parts.append(_text(_MARGIN, footer_y + 44 + i * 15, line, 11, _MUTED))
 
     parts.append("</svg>")
     return "\n".join(parts) + "\n"

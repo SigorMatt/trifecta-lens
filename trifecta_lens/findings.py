@@ -21,6 +21,27 @@ from trifecta_lens.roles import Role
 #: silently inherit realized's language or weight (CLAUDE.md invariant 3).
 TIER_REALIZED: Final[str] = "realized"
 
+#: How an edge in the reported path is justified (SPEC.md §5, DECISIONS.md D5).
+#: CAUSAL: the trace's own parent_id chain links the two spans.
+#: TEMPORAL: only ordering links them -- one was observed before the other. We
+#: did NOT observe that the first fed the second, and must not draw an arrow
+#: that implies we did.
+BASIS_CAUSAL: Final[str] = "causal"
+BASIS_TEMPORAL: Final[str] = "temporal"
+BASIS_MIXED: Final[str] = "mixed"
+
+
+@dataclass(frozen=True)
+class PathEdge:
+    """One step of the reported path, and what justifies it."""
+
+    source: str
+    target: str
+    basis: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"basis": self.basis, "from": self.source, "to": self.target}
+
 
 @dataclass(frozen=True)
 class Leg:
@@ -50,6 +71,11 @@ class Finding:
     sink_event: str
     sink_tool: str | None
     path: tuple[str, ...]
+    #: The path's edges, each carrying its own basis, and the aggregate basis.
+    #: Required, never optional: an unlabelled arrow is read as causation
+    #: (DECISIONS.md D5).
+    path_edges: tuple[PathEdge, ...]
+    path_basis: str
     legs: tuple[Leg, ...]
     legs_observed: tuple[Role, ...]
     legs_not_observed: tuple[Role, ...]
@@ -71,6 +97,8 @@ class Finding:
             "masked_values": list(self.masked_values),
             "note": self.note,
             "path": list(self.path),
+            "path_basis": self.path_basis,
+            "path_edges": [edge.to_dict() for edge in self.path_edges],
             "scope": self.scope,
             "sink": {"event": self.sink_event, "tool": self.sink_tool},
             "summary": self.summary,

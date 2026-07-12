@@ -75,6 +75,9 @@ def test_anchor_is_the_only_fixture_with_a_two_leg_finding() -> None:
         # silent because the 4-char value is below min_value_chars: a short
         # string colliding with payload text is noise, not a flow (SPEC.md §6.1)
         "benign_short_value_collision.jsonl": 0,
+        # hand-authored: real parent_id ancestry through the tools, so its
+        # finding reads path_basis=causal rather than temporal (SPEC.md §5)
+        "causal_chain.jsonl": 1,
         "demo_realized.jsonl": 1,
         "triage_benign_control.jsonl": 0,
         "triage_refused_sonnet5.jsonl": 0,

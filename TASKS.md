@@ -194,7 +194,7 @@ weakening the tier.
   4-char vault value colliding with a record count at the sink), which makes the
   curve real: FP at ≤4, silent at ≥5, true positives survive to 16 — so the
   shipped 8 sits **in the middle of the safe window**, with margin on both sides.
-- [ ] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
+- [x] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
   **Spec-first:** `SPEC.md` §5, `DESIGN.md` §1. Each path edge carries its basis
   (`causal` from real `parent_id` ancestry, `temporal` from ordering alone); the
   finding carries a **required** `path_basis` field (`causal`|`temporal`|`mixed`);

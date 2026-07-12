@@ -24,10 +24,19 @@ no sensitive value at the sink is not an exfil finding at any strength.
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Final
 
 from trifecta_lens.extraction import EXTRACTION, ExtractionConfig
-from trifecta_lens.findings import TIER_REALIZED, Finding, Leg
+from trifecta_lens.findings import (
+    BASIS_CAUSAL,
+    BASIS_MIXED,
+    BASIS_TEMPORAL,
+    TIER_REALIZED,
+    Finding,
+    Leg,
+    PathEdge,
+)
 from trifecta_lens.labeling import note_for_role
 from trifecta_lens.model import Event, Value
 from trifecta_lens.roles import (
@@ -81,6 +90,54 @@ def _summary_for(event: Event) -> str:
     return SUMMARY.format(sink=event.tool or event.actor)
 
 
+def _is_ancestor(ancestor: Event, descendant: Event, seen: dict[str, Event]) -> bool:
+    """Whether the trace's own parent_id chain links ``ancestor`` to ``descendant``.
+
+    This is the ONLY thing that earns the word "causal" — and it is a claim about
+    the instrumentation's ancestry, not about intent (CLAUDE.md invariant 4).
+    """
+    current = descendant.parent_id
+    while current is not None:
+        if current == ancestor.id:
+            return True
+        parent = seen.get(current)
+        if parent is None:
+            return False
+        current = parent.parent_id
+    return False
+
+
+def _path_edges(
+    path_events: list[Event], seen: dict[str, Event]
+) -> tuple[tuple[PathEdge, ...], str]:
+    """Build the path's edges with their bases, and the aggregate basis.
+
+    An edge is CAUSAL when real ancestry links its two spans, TEMPORAL when only
+    ordering does. Most real traces hang every tool span off the agent root, so
+    temporal is the common — and honest — answer.
+    """
+    edges = tuple(
+        PathEdge(
+            source=source.id,
+            target=target.id,
+            basis=(
+                BASIS_CAUSAL
+                if _is_ancestor(source, target, seen)
+                else BASIS_TEMPORAL
+            ),
+        )
+        for source, target in pairwise(path_events)
+    )
+    bases = {edge.basis for edge in edges}
+    if bases == {BASIS_CAUSAL}:
+        aggregate = BASIS_CAUSAL
+    elif bases == {BASIS_TEMPORAL}:
+        aggregate = BASIS_TEMPORAL
+    else:
+        aggregate = BASIS_MIXED
+    return edges, aggregate
+
+
 def _leg(role: Role, event: Event) -> Leg:
     return Leg(role=role, event=event.id, tool=event.tool, note=note_for_role(role))
 
@@ -125,6 +182,11 @@ def _accept(
         path_events.insert(0, source_event)
     path_events.sort(key=lambda e: (e.ts, e.id))
 
+    # The sink is not yet in ``seen`` (it is the event being processed), but the
+    # ancestry walk needs it to resolve the chain above it.
+    ancestry = {**seen, sink.id: sink}
+    edges, basis = _path_edges(path_events, ancestry)
+
     legs = tuple(
         _leg(role, event)
         for role, event in (
@@ -143,6 +205,8 @@ def _accept(
         sink_event=sink.id,
         sink_tool=sink.tool,
         path=tuple(e.id for e in path_events),
+        path_edges=edges,
+        path_basis=basis,
         legs=legs,
         legs_observed=tuple(r for r in _EXFIL_LEGS if r in observed),
         legs_not_observed=tuple(r for r in _EXFIL_LEGS if r not in observed),
