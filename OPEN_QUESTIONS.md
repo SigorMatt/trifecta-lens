@@ -1,10 +1,25 @@
 # OPEN_QUESTIONS.md — deferred spec/design decisions
 
-> **STATUS: all four RESOLVED** in the Phase 2 planning conversation
-> (2026-07-12). The decisions and their rationale live in **`DECISIONS.md`**:
-> §1 → **D3** (containment), §2 → **D4** (fixed + disclosed), §3 → **D5**
-> (`path_basis` required), §4 → **D6** (module-scoped gate). Implementation is
-> tracked as `TASKS.md` **2.1–2.3**.
+> **STATUS: §§1–4 RESOLVED. §5 remains OPEN.**
+>
+> §§1–4 were resolved in the Phase 2 planning conversation (2026-07-12); the
+> decisions and their rationale live in **`DECISIONS.md`**: §1 → **D3**
+> (containment), §2 → **D4** (fixed + disclosed), §3 → **D5** (`path_basis`
+> required), §4 → **D6** (module-scoped gate). Implementation: `TASKS.md`
+> **2.1–2.3**.
+>
+> **§5 (multi-format input) is NOT resolved** — but it no longer needs to block.
+> Its own deferral condition is *"we need at least one real non-demo
+> trace/format in hand before fixing the seam's shape"*, and **Checkpoint D
+> satisfies exactly that**: the capture yields a real OTLP trace, which is the
+> second real format that is *allowed* to force the seam. So §5 is answered
+> **by** Track B (`TASKS.md` 2.4–2.7), not ahead of it. Its adjacent decisions
+> are already taken — **D6** puts the stage seam under a gate, and **D9** builds
+> the OTLP front-end against the real captured trace rather than an imagined
+> one. What §5 still owes: the final call on how far the `Event` model must
+> change (2.7 already flags server-qualified tool identity), and an explicit
+> "add a format = add a Stage-1 adapter, never an engine branch" rule recorded
+> as a decision.
 >
 > This file is kept as the record of how the questions were *raised* — what the
 > tension was and why each was deferred rather than guessed. Read it for the

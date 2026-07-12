@@ -152,6 +152,11 @@ Build the whole pipeline (ingest → label → detect → report → render) for
 > planning conversation, including the two research findings that proved
 > `SPEC.md` §7 (the "manifest") and `DESIGN.md` §1 (reachable-as-type-compat)
 > **wrong**. `OPEN_QUESTIONS.md` §§1–4 are resolved there as D3–D6.
+>
+> **`OPEN_QUESTIONS.md` §5 (multi-format input) is still OPEN**, and 2.7 is where
+> it gets answered — its deferral condition ("a real non-demo format in hand
+> before fixing the seam's shape") is satisfied by Checkpoint D. Do not
+> generalize the adapter layer ahead of that real format.
 
 **Shape of the phase.** One human capture (**Checkpoint D**) is the root
 dependency: it yields *both* the tool inventory and the real OTLP trace. Track A
