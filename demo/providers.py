@@ -12,9 +12,12 @@ Two adapters implement the same interface:
 * :class:`AnthropicProvider` — the original path, the Anthropic Messages API
   with ``tool_use`` / ``tool_result`` blocks. Imported lazily, exactly as
   before, so this module unit-tests without the SDK or a key.
-* :class:`OllamaProvider` — an OpenAI-compatible Chat Completions endpoint
-  (Ollama's ``/v1`` server), so the live run can drive a local open model. Uses
-  the ``openai`` client (the ``demo`` extra), also imported lazily.
+* :class:`OpenAICompatibleProvider` — an OpenAI-compatible Chat Completions
+  endpoint, so the live run can drive an open model. One adapter, two servers:
+  a local Ollama ``/v1`` server (dummy key) or the Hugging Face Inference
+  Providers router (``https://router.huggingface.co/v1``, real bearer token) —
+  selected by ``base_url`` + ``api_key`` alone. Uses the ``openai`` client (the
+  ``demo`` extra), also imported lazily.
 
 Both are given the *same* neutral messages and tool schemas and must produce the
 *same* neutral :class:`AssistantMessage`, so the recorder downstream emits the
@@ -32,6 +35,14 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+# Hugging Face Inference Providers exposes an OpenAI-compatible router; unlike
+# Ollama it requires a real bearer token (HF_TOKEN). The router is a *broker*:
+# it forwards each request to a third-party serving provider (observed: Groq,
+# which serves the model under its own id "llama-3.3-70b-versatile"). A capture
+# must therefore record the actual serving provider/model reported in the
+# response, not just the id we requested — the served model can differ from
+# DEMO_MODEL.
+DEFAULT_HF_BASE_URL = "https://router.huggingface.co/v1"
 # Ollama ignores the API key, but the OpenAI client requires a non-empty value.
 _OLLAMA_API_KEY = "ollama"
 
@@ -190,7 +201,7 @@ class AnthropicProvider:
         return _assistant_from_anthropic(response)
 
 
-# --- Ollama adapter (OpenAI-compatible Chat Completions) --------------------
+# --- OpenAI-compatible adapter (Ollama, Hugging Face router) ----------------
 
 
 def _to_openai_tools(
@@ -261,12 +272,20 @@ def _to_openai_messages(
 
 
 def _parse_arguments(arguments: str | None) -> dict[str, Any]:
-    """Parse an OpenAI tool call's JSON-string arguments into a dict."""
+    """Parse an OpenAI tool call's JSON-string arguments into a dict.
+
+    A no-argument tool call is delivered inconsistently across OpenAI-compatible
+    routers: some send ``"{}"``, some an empty string, and some (observed on the
+    HF -> Groq path) the JSON literal ``"null"``. Any parsed value that is not a
+    JSON object is treated as "no arguments" and coerced to ``{}`` so the call
+    dispatches cleanly instead of crashing; the loop passes this straight to the
+    tool stub.
+    """
     if not arguments:
         return {}
     parsed = json.loads(arguments)
     if not isinstance(parsed, dict):
-        raise ValueError(f"tool call arguments were not a JSON object: {arguments!r}")
+        return {}
     return parsed
 
 
@@ -290,8 +309,17 @@ def _assistant_from_openai(response: Any) -> AssistantMessage:
     return AssistantMessage(text=message.content, tool_calls=tool_calls)
 
 
-class OllamaProvider:
-    """OpenAI-compatible transport against a local Ollama ``/v1`` endpoint."""
+class OpenAICompatibleProvider:
+    """OpenAI-compatible Chat Completions transport, parameterized per endpoint.
+
+    One adapter serves every OpenAI-compatible server the demo drives: a local
+    Ollama ``/v1`` endpoint (dummy key) and the Hugging Face Inference Providers
+    router (``https://router.huggingface.co/v1``, real bearer token). Only
+    ``base_url`` and ``api_key`` differ between them — the tool-schema
+    translation, the ``tool_calls`` parsing, and the ``role:"tool"`` result
+    formatting are the *same* code for both (CLAUDE.md: add a transport, not a
+    per-provider branch).
+    """
 
     def __init__(
         self,
@@ -334,6 +362,7 @@ class OllamaProvider:
 
 ANTHROPIC = "anthropic"
 OLLAMA = "ollama"
+HF = "hf"
 
 
 def build_provider(
@@ -342,14 +371,42 @@ def build_provider(
     model: str,
     max_tokens: int,
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL,
+    hf_base_url: str = DEFAULT_HF_BASE_URL,
+    hf_api_key: str | None = None,
 ) -> Provider:
-    """Select the transport by ``endpoint`` ("anthropic" default, or "ollama")."""
+    """Select the transport by ``endpoint``.
+
+    ``"anthropic"`` (default) is the Anthropic Messages API. ``"ollama"`` and
+    ``"hf"`` are the *same* OpenAI-compatible adapter
+    (:class:`OpenAICompatibleProvider`) pointed at different servers: a local
+    Ollama endpoint (dummy key) or the Hugging Face Inference Providers router
+    (a real ``HF_TOKEN``). Only base URL and auth differ; the translation code is
+    shared, never duplicated per provider.
+    """
     if endpoint == ANTHROPIC:
         return AnthropicProvider(model=model, max_tokens=max_tokens)
     if endpoint == OLLAMA:
-        return OllamaProvider(
-            model=model, max_tokens=max_tokens, base_url=ollama_base_url
+        return OpenAICompatibleProvider(
+            model=model,
+            max_tokens=max_tokens,
+            base_url=ollama_base_url,
+            api_key=_OLLAMA_API_KEY,
+        )
+    if endpoint == HF:
+        # The HF router brokers to a third-party serving provider (see the
+        # DEFAULT_HF_BASE_URL note); a real token is required, unlike Ollama.
+        if not hf_api_key:
+            raise ValueError(
+                "hf endpoint requires an API token; set HF_TOKEN in the "
+                "environment"
+            )
+        return OpenAICompatibleProvider(
+            model=model,
+            max_tokens=max_tokens,
+            base_url=hf_base_url,
+            api_key=hf_api_key,
         )
     raise ValueError(
-        f"unknown DEMO_ENDPOINT {endpoint!r}; expected {ANTHROPIC!r} or {OLLAMA!r}"
+        f"unknown DEMO_ENDPOINT {endpoint!r}; "
+        f"expected {ANTHROPIC!r}, {OLLAMA!r}, or {HF!r}"
     )
