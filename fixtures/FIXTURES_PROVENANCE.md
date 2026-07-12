@@ -93,3 +93,41 @@ benign_no_flow.jsonl
         fixtures are silent partly because they call no labeled tool at all;
         this one is silent because the value did not reach the sink. That is the
         false-positive-noise claim, made falsifiable.
+
+The four fixtures below are the task 3.7 benign corpus: realistic benign traffic
+where no verbatim secret reached an outbound sink, each SILENT for a distinct,
+named, load-bearing reason (not "no labeled tool was called"). Together with the
+above they make "low false-positive noise" a measured number rather than an
+assertion — see tests/test_benign_corpus.py. All hand-authored; NOT captures.
+
+benign_redacted_secret.jsonl
+  authored: by hand (task 3.7)
+  shape: vault (secret) -> webhook, but the body carries only a short prefix
+         "sk-demo-tr…REDACTED" — a realistic agent redaction step.
+  role: sensitive_data AND sink:exfil legs both present and labeled; silence can
+        only come from the verbatim guard (a redacted prefix is not the whole
+        value). Mechanism: redaction/truncation != verbatim.
+
+benign_secret_to_nonsink.jsonl
+  authored: by hand (task 3.7)
+  shape: vault (secret) -> scratchpad, where the FULL secret is threaded verbatim
+         into the scratchpad call. "scratchpad" is not in any sink pattern.
+  role: proves the SINK label is load-bearing, not just the value match. The
+        value reaches a tool verbatim, but that tool carries no sink:exfil role,
+        so no family accepts. Mechanism: only a sink counts as a sink.
+
+benign_lookalike_not_the_secret.jsonl
+  authored: by hand (task 3.7)
+  shape: vault (secret) -> webhook, but the body posts a DIFFERENT high-entropy
+         token (a request id), not the secret.
+  role: guards against a naive "any secret-shaped string at the sink is a leak"
+        detector. Both legs present; silent because THE secret is not at the sink.
+
+benign_source_echo_no_secret.jsonl
+  authored: by hand (task 3.7)
+  shape: fetch (untrusted web content) -> webhook (a summary echoing that
+         content). No vault read: there is NO sensitive_data leg.
+  role: encodes the family boundary honestly — untrusted_source -> sink:exfil
+        alone is not a v1 exfil finding (no family accepts on it). Mechanism: the
+        sensitive leg is required. (This is a v1 scope statement, not a claim
+        that echoing untrusted content outbound is always safe.)

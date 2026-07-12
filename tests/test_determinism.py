@@ -88,9 +88,15 @@ def test_anchor_is_the_only_fixture_with_a_two_leg_finding() -> None:
     }
     assert counts == {
         "benign_no_flow.jsonl": 0,
+        # the task 3.7 benign corpus: each silent for a distinct, load-bearing
+        # reason (tests/test_benign_corpus.py names them). All 0.
+        "benign_lookalike_not_the_secret.jsonl": 0,
+        "benign_redacted_secret.jsonl": 0,
+        "benign_secret_to_nonsink.jsonl": 0,
         # silent because the 4-char value is below min_value_chars: a short
         # string colliding with payload text is noise, not a flow (SPEC.md §6.1)
         "benign_short_value_collision.jsonl": 0,
+        "benign_source_echo_no_secret.jsonl": 0,
         # hand-authored: real parent_id ancestry through the tools, so its
         # finding reads path_basis=causal rather than temporal (SPEC.md §5)
         "causal_chain.jsonl": 1,

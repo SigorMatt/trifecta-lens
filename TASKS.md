@@ -530,9 +530,21 @@ while only our own hand-shaped JSONL loads.
 - [ ] **3.6 `pipx` / `uvx` install path.** Package so a stranger runs it on their
   own agent in ~60s (the exit). *Done when the console-script installs and runs
   from a clean environment.*
-- [ ] **3.7 Benign-fixture suite — low-false-positive evidence.** Extend the
+- [x] **3.7 Benign-fixture suite — low-false-positive evidence.** Extend the
   benign corpus so "low FP noise" is a **measured** claim (extends 2.1's threshold
-  curve and the load-bearing-silence triage fixtures), not an assertion.
+  curve and the load-bearing-silence triage fixtures), not an assertion. — Added
+  four hand-authored benign fixtures, each silent for a **distinct, named,
+  load-bearing** reason: `benign_redacted_secret` (redaction != verbatim),
+  `benign_secret_to_nonsink` (the value flows verbatim to a tool that carries no
+  sink role — proves the *sink label* is load-bearing, not just the match),
+  `benign_lookalike_not_the_secret` (a different high-entropy token at the sink),
+  `benign_source_echo_no_secret` (source→sink with no sensitive leg — the family
+  boundary, stated honestly). `tests/test_benign_corpus.py` makes the claim a
+  number — **8 benign traces, 0 realized false positives at the shipped config** —
+  and per-mechanism tests assert the legs that *would* fire are present, so each
+  silence can only come from the guard it exercises. Provenance added; goldens
+  regenerated (all empty). This complements 2.1's "why the threshold is 8" with
+  "how broadly the detector stays quiet." `make check` green (227 tests).
 
 **Suggested order:** 3.3 (done), 3.4 + 3.7 (evidence, longest lead), then
 3.5 / 3.6 (packaging), then 3.1 (README) last so it can cite the frozen schema
