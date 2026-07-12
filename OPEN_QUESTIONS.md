@@ -1,5 +1,15 @@
 # OPEN_QUESTIONS.md — deferred spec/design decisions
 
+> **STATUS: all four RESOLVED** in the Phase 2 planning conversation
+> (2026-07-12). The decisions and their rationale live in **`DECISIONS.md`**:
+> §1 → **D3** (containment), §2 → **D4** (fixed + disclosed), §3 → **D5**
+> (`path_basis` required), §4 → **D6** (module-scoped gate). Implementation is
+> tracked as `TASKS.md` **2.1–2.3**.
+>
+> This file is kept as the record of how the questions were *raised* — what the
+> tension was and why each was deferred rather than guessed. Read it for the
+> reasoning; read `DECISIONS.md` for the answers.
+
 Raised at **Checkpoint C** (Phase 1 exit, tasks 1.3–1.9). Each item is a place
 where the committed specs disagree with each other, or where the Phase-1 slice
 made a choice that the specs do not yet sanction. None of them changes a
