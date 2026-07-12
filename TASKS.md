@@ -492,14 +492,40 @@ while only our own hand-shaped JSONL loads.
 
 **Fork-gated (framing C):**
 
-- [ ] **3.1 README + honesty/limitations section.** Rewrite the Phase-0 stub to
+- [x] **3.1 README + honesty/limitations section.** Rewrite the Phase-0 stub to
   the launch README under framing C: headline the reachable-vs-realized "could,
   but didn't" gap on real artifacts; realized-trifecta-in-the-wild not claimed.
   Carry the three-tier defs, the four honest gaps (`ROADMAP.md`: RAG/LLM ingest
   not built, realized anchor is direct-instruction not injection, action-hijack
   catalogued but unaccepted, verbatim-only), and `worked_example` labeled
   hand-authored. Append D10 to `DECISIONS.md`. *Done when the honesty gate scans
-  the rendered README and the banned-token / no-overclaim checks pass on it.*
+  the rendered README and the banned-token / no-overclaim checks pass on it.* —
+  The headline is the gap: *"Your agent probably could exfiltrate your data. It
+  probably hasn't yet. That gap is the finding."* Both halves rest on the two real
+  Checkpoint D artifacts — the captured run realized only the **two-leg** family
+  (the missing leg named), while the full trifecta is **reachable** in the same
+  `assistant` context and **no run was observed wiring it**; `triage` cannot wire
+  it at all, which is the distinction posture is structurally unable to draw.
+  **D10 appended** to `DECISIONS.md` (framing C; 3.2 dropped; the reasoning that
+  the strong claim is the one we could not support without manufacturing evidence).
+  **The gate is the point.** `tests/test_readme.py` fails the build if the README
+  (a) carries causal/attack language, (b) claims a read-only analyzer *prevents*
+  anything, (c) **shows a line of output the tool did not really print** — the
+  console block is regenerated from the committed capture and compared line by
+  line, so "never fabricate a captured artifact" now covers the place the artifact
+  is *shown*, (d) shows a findings JSON that is not the real finding (compared as
+  parsed data), (e) omits any of the four honest gaps, or (f) names
+  `worked_example` in a paragraph that does not call it **hand-authored**. Each was
+  verified by planting the violation and watching it fire — and (f) caught a real
+  hole in its own first draft (a 400-char window let a neighbouring paragraph's
+  "hand-authored" satisfy it; tightened to the enclosing paragraph).
+  **And the quickstart was a lie, caught before launch:** the first draft opened
+  with `pipx install "trifecta-lens[capture]"` — which 404s, because the package is
+  **not on PyPI**. A launch page whose first command fails has spent the credibility
+  the rest of the page is asking for. The README now says it is unpublished and
+  installs from the repo (verified: `uvx --from git+file://… trifecta-lens --version`
+  → 0.1.0), and a test pins that no code block may carry an install command that
+  does not resolve today. Flip both together when it is published.
 - [ ] **3.2 — DROPPED.** No injection-capture attempt (operator declined the
   spend). Recorded so the decision is legible, not silently skipped.
 

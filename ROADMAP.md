@@ -134,22 +134,55 @@ discover it during launch week.
   public moment — the first phase whose shareable is external, not an internal
   screenshot.
 
-### Phase 3 in progress (2026-07-13)
+### Phase 3 — COMPLETE (2026-07-13)
 
 Planned in the Phase 3 planning conversation, sharpened to PR granularity in
-`TASKS.md` (3.1–3.7). **The launch-claim fork is resolved: framing C — the
+`TASKS.md` (3.1–3.7). **The launch-claim fork was resolved: framing C — the
 tier-gap ("could, but didn't") is the hero; realized-trifecta-in-the-wild is NOT
 claimed; no injection-capture attempt** (the honest weaker claim, chosen
-deliberately; recorded as **D10** in `DECISIONS.md`, landing with the README).
+deliberately; **D10** in `DECISIONS.md`).
 
-- **Shipped to `main`** (green, 231 tests): **3.3** findings NDJSON schema frozen
-  as a public contract (in-band `schema_version`); **3.4** `INCIDENTS.md`
-  primary-source-verified incidents (EchoLeak CVE-2025-32711; GitHub MCP /
-  Invariant Labs) + the Willison concept source; **3.7** benign FP corpus —
-  8 benign traces, 0 realized false positives, each silence load-bearing.
-- **Remaining:** **3.5** `CONTRIBUTING.md` flywheel; **3.6** `pipx`/`uvx` install;
-  **3.1** the launch README (framing C), landed last so it can cite the frozen
-  schema and the verified incidents.
+All seven tasks shipped to `main` (green, 250 tests; `make install-check` green):
+
+- **3.3** findings NDJSON frozen as a public contract, in-band `schema_version`.
+- **3.4** `INCIDENTS.md` — primary-source-verified incidents (EchoLeak
+  CVE-2025-32711; GitHub MCP / Invariant Labs) + the Willison concept source.
+- **3.7** benign FP corpus — 8 benign traces, 0 realized false positives, each
+  silence load-bearing for a *different, named* reason.
+- **3.5** `CONTRIBUTING.md` — the catalog-entry flywheel, with every YAML example
+  in it executed by the real parser and the real labeling function.
+- **3.6** the install path — and the blocker turned out not to be packaging but the
+  missing **input**: `demo/capture_inventory.py` is hard-wired to our own servers, so
+  a stranger had no way to produce an inventory for *their* stack. Shipped
+  **`trifecta-capture`** (its own package, outside core, `capture` extra) which reads
+  the user's own MCP host config. `make install-check` proves the shipped wheel
+  installs into a clean venv and *finds something* — not merely that `--version` runs.
+- **3.1** the launch README under framing C, with `tests/test_readme.py` holding it to
+  the same honesty gates as the output: no causal/attack language, no claim a
+  read-only analyzer prevents anything, **every line of shown output regenerated from
+  the real capture and compared**, the findings JSON compared as data, the four honest
+  gaps present, and `worked_example` never named without "hand-authored" in the same
+  paragraph.
+- **3.2 DROPPED** (no injection capture; operator declined the spend) — recorded, not
+  silently skipped.
+
+**Two things the launch prep caught that prose review would not have.** The README's
+first-draft quickstart said `pipx install "trifecta-lens[capture]"` — which **404s**;
+the package is not on PyPI, and a launch page whose first command fails has spent the
+credibility the rest of the page is asking for. It now installs from the repo, and a
+test forbids any code block from carrying an install command that does not resolve
+today. And the first draft of the "worked_example must be disclosed" gate passed a
+planted violation, because a *neighbouring* paragraph said "hand-authored" about
+something else.
+
+**Exit met:** a stranger installs from the repo, captures their own inventory with
+`trifecta-capture`, and runs `trifecta-lens` on their own agent. Every README claim
+traces to a committed real artifact or a fixture disclosed as hand-authored. **Phase
+boundary — stop here for the launch planning conversation.**
+
+**Open, and deliberately not decided by the build agent:** publishing to PyPI (needs
+the operator's credentials and is an outward-facing, one-way action), and pushing
+`main` to the public remote. Both belong to the launch conversation.
 
 ## Phase 4 — Fast-follow: action hijack + CI surface  *(provisional)*
 Action-hijack family (source → `sink:impact`), **posture + reachable only** —

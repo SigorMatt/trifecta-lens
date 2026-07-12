@@ -1,8 +1,10 @@
-# DECISIONS.md — Phase 2 decision record
+# DECISIONS.md — the decision record
 
-Decisions taken in the Phase 2 planning conversation (2026-07-12), after
-Checkpoint C. Each was resolved deliberately, in planning, **not silently in
-code** — which is what `OPEN_QUESTIONS.md` existed to force.
+D1–D9 were taken in the **Phase 2** planning conversation (2026-07-12), after
+Checkpoint C. **D10** — the launch claim — was taken in the **Phase 3** planning
+conversation (2026-07-13) and is recorded at the end. Each was resolved
+deliberately, in planning, **not silently in code** — which is what
+`OPEN_QUESTIONS.md` existed to force.
 
 Two of them (D1, D2) were forced by research findings that contradicted the
 committed specs. Those findings are recorded in full because the specs were
@@ -233,6 +235,52 @@ hand-shaped approximation of what we imagine OTLP looks like.
 Honest fallback, retained: if it overruns, **reword the Phase 2 exit** and defer
 the adapter to Phase 3. What we do *not* do is claim "point it at your own agent"
 while only our own hand-shaped JSONL loads.
+
+## D10 — The launch claim is the tier gap, not a trifecta in the wild
+
+*Taken in the Phase 3 planning conversation (2026-07-13); an operator decision.
+Recorded here, in the 3.1 PR, because it is the decision the README is built on.*
+
+**The fork.** Phase 2 shipped three working tiers on a real MCP stack — and the
+realized tier's captured anchor is a **direct-instruction** run, not a prompt
+injection. Nobody has ever handed this tool a captured trace of a real lethal
+trifecta being realized in the wild, and neither have we. So: what does the launch
+*claim*?
+
+Three framings were live:
+
+- **A — "we caught a lethal trifecta."** Requires a captured injection run. We do
+  not have one, and the only ways to get one are to attempt a real capture against
+  a real system (out of scope, and a spend the operator declined) or to author one
+  and call it captured. The second is the line that never moves.
+- **B — "posture scanner for MCP."** True, shippable today, and boring: posture
+  overlaps every static scanner in the category. It leads with our weakest tier.
+- **C — "the tier gap is the hero."** Lead with **reachable vs realized**: *this
+  agent could wire the trifecta, and in the run we captured it didn't.* Both halves
+  rest on real, committed artifacts. **Chosen.**
+
+**Decision: framing C.** The launch headlines the **"could, but didn't" gap** on
+real artifacts. A **realized lethal trifecta in the wild is NOT claimed**, anywhere.
+The realized *trifecta* is exercised only by `fixtures/worked_example.jsonl`, which
+is **hand-authored** and disclosed as such every time it is named. No
+injection-capture attempt; no paid-credential spend (**3.2 is DROPPED**, recorded
+rather than silently skipped).
+
+**Why the weaker claim is the right one.** The strong claim is the one we could not
+support without manufacturing evidence, and this tool's entire value is that it
+does not say what it cannot support. A product whose pitch is *"we only tell you
+what we actually saw"* cannot open with something it did not actually see — the
+first reader to check would be right to discard everything else in the report. The
+gap claim is also, on inspection, the more useful one: nobody has a trace of their
+agent leaking data, and everybody has a topology that could.
+
+**Binding on the README (enforced, not promised).** `tests/test_readme.py` fails the
+build if the README carries causal/attack language, claims a read-only analyzer
+prevents anything, shows a line of output the tool did not really print, shows a
+findings JSON that is not byte-for-byte the real finding, omits any of the four
+honest gaps, or mentions `worked_example` in a paragraph that does not call it
+hand-authored. The honesty gate now scans the front page, because far more people
+read the front page than run the tool.
 
 ---
 
