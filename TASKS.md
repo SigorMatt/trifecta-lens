@@ -258,11 +258,18 @@ weakening the tier.
   `input.value`. The **model-driven** capture is Checkpoint D. The Phase 1 flat
   harness is retained only for the anchor replay (`make demo`). Heavy SDKs
   imported lazily, so `make check` (dev-only) stays green.
-- [ ] **2.5 Inventory capture script** (D2). Outside core (`contrib/` or `demo/`).
+- [x] **2.5 Inventory capture script** (D2). Outside core (`contrib/` or `demo/`).
   Speaks `tools/list` to each configured server and writes the inventory JSON:
   `contexts[]`, each with an id, its **effective** tool set, and a **human-written**
   provenance note. *Done when it produces a well-formed inventory from a running
-  server set.*
+  server set.* — `demo/capture_inventory.py`: launches each context's servers over
+  stdio, records the verbatim `tools/list` entries (each tagged with its server so
+  the loader can form the `<server>__<tool>` name the trace uses), and writes
+  `{contexts: [{id, provenance, servers, tools}]}`. Provenance is human-written
+  prose per context (intent + capture method), and the `triage` note states in
+  prose *why* it is a subset (no outbound sink) — the non-vacuity auditability D7
+  wants. Needs **no model**. The actual captured inventory artifact lands at
+  Checkpoint D.
 - [ ] 🛑 **CHECKPOINT D — human capture (halt).** A human runs 2.4 + 2.5 and
   commits: the **inventory fixture** (≥2 contexts), the **real OTLP trace fixture**,
   and provenance for both. **The build agent must never fabricate either artifact**

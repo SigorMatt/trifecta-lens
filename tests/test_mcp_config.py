@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from demo import (  # noqa: F401  (import-time contract: must not need the extra)
+    capture_inventory,
     mcp_client,
     mcp_config,
     otel_export,
@@ -88,6 +89,24 @@ def test_sink_records_without_network(monkeypatch: pytest.MonkeyPatch) -> None:
     status = sink_server._record("status://register", "sk-demo-0000")
     assert "recorded" in status
     assert "not delivered" in status
+
+
+def test_every_context_has_a_provenance_note() -> None:
+    # D2 requires a human-written provenance note per context; the capture note
+    # must carry both the context's intent and the capture method (no model).
+    for context_id in mcp_config.CONTEXTS:
+        note = capture_inventory._capture_note(context_id)
+        assert context_id in capture_inventory.CONTEXT_INTENT
+        assert capture_inventory.CONTEXT_INTENT[context_id] in note
+        assert "tools/list" in note
+        assert "No model" in note
+
+
+def test_triage_note_states_it_lacks_the_sink() -> None:
+    # The provenance for the subset context must say why it is a subset, in
+    # prose — this is what makes reachable's non-vacuity auditable, not asserted.
+    note = capture_inventory._capture_note("triage")
+    assert "no outbound" in note.lower()
 
 
 def test_sink_appends_to_outbox_when_set(
