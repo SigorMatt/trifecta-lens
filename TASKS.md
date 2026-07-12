@@ -76,9 +76,13 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   captured run exists in which an untrusted-source leg and a verbatim secret at
   a sink co-occur. This is why the anchor supports the two-leg family, not the
   trifecta (`SPEC.md` §3).
-- [ ] **1.3 Ingest.** Extend the 0.6 loader to full payload-level extraction
+- [x] **1.3 Ingest.** Extend the 0.6 loader to full payload-level extraction
   (inputs/outputs) per `SPEC.md` §2. *Done when the demo fixture yields the
-  expected Event stream.*
+  expected Event stream.* — The 0.6 loader already extracted both payloads
+  (both mime types, absent-vs-empty distinguished), so no loader change was
+  needed; 1.3 is the anchoring test `tests/test_ingest.py`: all 5 spans, vault
+  outputs on s1/s3, webhook inputs on s2/s4, ancestry from `parent_id`, sorted
+  by `start_time`.
 - [ ] **1.4 Hardcoded labeling (slice-only).** Assign source / sensitive /
   exfil roles to the three demo tools directly. Tag `# TEMP: catalog in P2`.
   *Done when the three demo events carry the right roles.*
