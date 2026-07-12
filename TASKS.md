@@ -63,41 +63,96 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   agent boring (`CLAUDE.md`: not a strawman). **Lives in `demo/`, outside the
   core package**, so its network/exec use never trips the 0.4 guard.
   *Done when a live run emits a payload-level span file.*
-- [ ] **1.2 Record + freeze the demo trace (`make demo`).** Capture one real
-  exploited run from 1.1; commit spans as `fixtures/demo_exfil.jsonl`. This one
-  file is the deterministic showcase **and** the realized test anchor **and**
-  the first shareable. *Done when `make demo` replays it with no model call.*
-- [ ] **1.3 Ingest.** Extend the 0.6 loader to full payload-level extraction
+- [x] **1.2 Record + freeze the demo trace (`make demo`).** Capture one real run
+  from 1.1; commit the spans as the frozen anchor. This one file is the
+  deterministic showcase **and** the realized test anchor **and** the first
+  shareable. *Done when `make demo` replays it with no model call.*
+  **As captured:** the committed anchor is `fixtures/demo_realized.jsonl` (not
+  the provisionally-named `demo_exfil.jsonl`) — a real **direct-instruction,
+  non-injection** run on Llama-3.3-70B in which the secret reaches the webhook
+  sink verbatim. It carries the vault→webhook flow twice (`s2` posts a
+  placeholder, `s4` posts the secret), and it has **no untrusted-source span**.
+  See `fixtures/demo_realized.provenance.md` and `demo/CAPTURE_LOG.md`: no
+  captured run exists in which an untrusted-source leg and a verbatim secret at
+  a sink co-occur. This is why the anchor supports the two-leg family, not the
+  trifecta (`SPEC.md` §3).
+- [x] **1.3 Ingest.** Extend the 0.6 loader to full payload-level extraction
   (inputs/outputs) per `SPEC.md` §2. *Done when the demo fixture yields the
-  expected Event stream.*
-- [ ] **1.4 Hardcoded labeling (slice-only).** Assign source / sensitive /
-  exfil roles to the three demo tools directly. Tag `# TEMP: catalog in P2`.
-  *Done when the three demo events carry the right roles.*
-- [ ] **1.5 Value extraction + verbatim taint** (`SPEC.md` §6). Extract the
+  expected Event stream.* — The 0.6 loader already extracted both payloads
+  (both mime types, absent-vs-empty distinguished), so no loader change was
+  needed; 1.3 is the anchoring test `tests/test_ingest.py`: all 5 spans, vault
+  outputs on s1/s3, webhook inputs on s2/s4, ancestry from `parent_id`, sorted
+  by `start_time`.
+- [x] **1.4 Hardcoded labeling (slice-only).** Assign source / sensitive /
+  exfil roles to the demo tools directly. Tag `# TEMP: catalog in P2`.
+  *Done when the demo events carry the right roles.* — `trifecta_lens/roles.py`
+  (the role alphabet) + `trifecta_lens/labeling.py` (a slice-local **data
+  table**, not code paths: `vault`→`sensitive_data`, `webhook`→`sink:exfil`).
+  **No span is labeled `untrusted_source`** — the anchor has none, and inventing
+  one to make the trifecta accept is the mislabeling this project must not do.
+- [x] **1.5 Value extraction + verbatim taint** (`SPEC.md` §6). Extract the
   secret from the vault span; normalized-exact match into the webhook span
   inputs. *Done when the secret is detected crossing vault→webhook and is NOT
-  detected in the benign fixture.*
-- [ ] **1.6 Realized detector.** Emit a finding when a tainted value reaches the
-  sink, with the ordered path and masked value. Findings serialize as NDJSON —
-  one finding per line, `sort_keys=True`, written as found (`DESIGN.md` §6).
-  Output text is *"tainted data observed reaching <sink>"* — no causal/attack
-  language (`CLAUDE.md` 4).
+  detected in the benign fixture.* — `trifecta_lens/taint.py`. Matches at `s4`,
+  does **not** match at `s2` (placeholder), and does not match in either triage
+  fixture. Tests pin that transformed taint (base64 / split / paraphrase) does
+  **not** match — the v1 limit, stated, not papered over.
+- [x] **1.6 Realized detector + the two-leg family (approved spec change).** Emit
+  a finding when a tainted value reaches the sink, with the ordered path and
+  masked value. Findings serialize as NDJSON — one finding per line,
+  `sort_keys=True`, written as found (`DESIGN.md` §6). Output text is *"tainted
+  data observed reaching <sink>"* — no causal/attack language (`CLAUDE.md` 4).
   *Done when the positive fixture yields one realized finding with the path and
   the benign yields none.*
-- [ ] **1.7 Tiered human report** (realized only for the slice) with a tier
-  badge. *Done when it prints the masked verdict.*
-- [ ] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).
+  **Spec-first:** `SPEC.md` §3/§3.1/§5 and `DESIGN.md` §2/§3 now define
+  `sensitive_to_exfil_sink` — a **relaxation of the same exfil automaton**
+  (drop the `untrusted_source` conjunct, keep the guard), reported as the lesser
+  family that always names the source leg as not-observed. The trifecta stays
+  defined and *exercised* (`worked_example.jsonl`, which has a real `fetch`
+  source leg, yields `exfil_trifecta`). Code: `trifecta_lens/engine.py` (the fold)
+  + `trifecta_lens/findings.py` (the NDJSON append-stream).
+  **Acceptance verified:** anchor → exactly one `sensitive_to_exfil_sink`
+  finding, sink `s4`, path `s3 → s4`, value masked; nothing on `s2`; no trifecta
+  finding on the anchor; zero on both triage fixtures.
+- [x] **1.7 Tiered human report** (realized only for the slice) with a tier
+  badge. *Done when it prints the masked verdict.* — `trifecta_lens/report.py`,
+  reachable via `trifecta-lens --trace <file>`. Prints `[REALIZED]
+  sensitive_to_exfil_sink (two-leg — NOT the trifecta)`, the path, the masked
+  value, and the legs observed / **not** observed. States that posture and
+  reachable did not run, and that no finding is not evidence of no flow.
+  Degrades honestly: a payload-less trace reports realized `UNAVAILABLE`, not
+  "no findings". The 0.8 honesty gate now scans the **rendered** report and
+  findings NDJSON for every shipped fixture, as its docstring promised.
+- [x] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).
   Hand-positioned layout; no graphviz (`DESIGN.md` §8).
-  *Done when `make demo` writes the SVG.*
-- [ ] **1.9 Benign fixture + tests + determinism.** A clean run that produces
+  *Done when `make demo` writes the SVG.* — `trifecta_lens/svg.py`; `make demo`
+  writes `out/demo_realized.svg` (+ `out/demo_realized.findings.ndjson`).
+  Renders `s3 (vault, sensitive_data) → s4 (webhook, sink:exfil)` on a red edge.
+  Because the SVG is the thing that gets screenshotted **out of context**, it
+  carries its own honesty: the `[REALIZED] sensitive_to_exfil_sink` badge,
+  "(two-leg — NOT the trifecta)", `not observed: untrusted_source`, the masked
+  value, and "flow observed, not causation".
+- [x] **1.9 Benign fixture + tests + determinism.** A clean run that produces
   NO realized finding; pytest anchoring positive→realized and benign→none;
   re-run gives byte-identical findings. *Done when all green.*
-  **(Phase 1 exit + first shareable: post the red-edge SVG + the
-  `RECEIVED API_KEY=…` line.)**
+  Added `fixtures/benign_no_flow.jsonl` (hand-authored): it calls **both**
+  labeled tools — `vault` *and* `webhook` — but never posts the secret. Its
+  silence therefore cannot come from the labeling, only from the verbatim guard
+  failing. The two captured triage fixtures are silent for a *different* reason
+  (they never call a labeled tool at all), and `tests/test_determinism.py` names
+  both reasons rather than lumping them together. 0.7's acceptance harness now
+  carries the Phase-1 done-whens, as it always said it would.
+  **(Phase 1 exit.)**
 
 ---
 
 ## Phase 2 — Generalize to the engine  *(provisional — sharpen after 1.9)*
+
+> **Read `OPEN_QUESTIONS.md` first.** Four spec/design ambiguities surfaced at
+> Checkpoint C and were deliberately left unresolved: exact-vs-substring
+> matching, the undisclosed `MIN_VALUE_CHARS` extraction parameter, the path
+> being temporal rather than causal, and a blind spot in the 0.8 architecture
+> gate. Each must be decided in the planning chat — **not silently in code.**
 
 - Extract the role **catalog** (data file: `match → role + subtype + note`,
   `SPEC.md` §4); replace the 1.4 hardcoded labels with catalog lookup. The

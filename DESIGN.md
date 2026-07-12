@@ -29,9 +29,24 @@ a vertex may emit several symbols.
 sensitive legs are seen is immaterial (reading the vault before fetching the
 poisoned page is the same exposure); the sink terminates the path:
 
-- **Exfil family** accepts on `SINK_X` when `{SRC, SEN}` are present in the
-  path's ancestry.
+- **Exfil trifecta** (`exfil_trifecta`) accepts on `SINK_X` when `{SRC, SEN}`
+  are present in the path's ancestry.
+- **Two-leg exfil** (`sensitive_to_exfil_sink`) accepts on `SINK_X` when `{SEN}`
+  is present — `SRC` **not** required. This is a **relaxation of the trifecta's
+  acceptance predicate on the same machine**, not a second machine: same states,
+  same lattice, same guard; one conjunct dropped. Since `{SRC,SEN} ⊃ {SEN}`,
+  every trifecta-accepting run is also a two-leg-accepting run — so the engine
+  emits **one finding per accepting sink, at the strongest family that accepts**
+  (trifecta if `SRC` is present, else two-leg), and the finding always names the
+  legs observed and not-observed (`SPEC.md` §3.1). The `SEN` leg is required by
+  both: exfil is about *sensitive* data leaving, so a run with no sensitive leg
+  is not an exfil finding at any strength.
 - **Action-hijack family** accepts on `SINK_I` when `{SRC}` is present.
+
+The two-leg condition is what a trace with no untrusted-source leg can honestly
+support. Its existence is the reason the machine never needs a "close enough"
+label: when `SRC` is genuinely absent, the machine reports the weaker family
+rather than pretending the stronger one accepted.
 
 Every state self-loops on non-advancing symbols (unlabeled vertices, repeated
 legs) — absorbed, never errors. The lattice is **monotone**: legs accumulate,
@@ -58,6 +73,14 @@ Drop the guard → reachable. Drop the edges → posture. Therefore
 structural property of the machine, not editorial discipline in report text
 (though the text invariants in `CLAUDE.md` still apply and are still gated).
 
+The tier relaxations and the family relaxation are **orthogonal**: tiers weaken
+the *input* (edges, then the guard), families weaken the *acceptance predicate*
+(one leg). Containment therefore holds **within each family** — realized
+trifecta ⊆ reachable trifecta ⊆ posture trifecta, and likewise for the two-leg
+family — and, at a fixed tier, **trifecta ⊆ two-leg**. A finding never moves up
+a tier *or* up a family; both are lattice-monotone, which is what makes the
+honesty claim structural rather than editorial.
+
 For realized, the accepting run itself (the ordered events) is the reported
 path; the matched value (masked) is the evidence.
 
@@ -73,6 +96,12 @@ path; the matched value (masked) is the evidence.
 - **Extraction parameters** (what counts as a secret-like token, normalization
   rules) are a possible later, cautiously exposed third layer — Phase 2+, each
   knob disclosed in findings output ("detected under config X").
+
+> **NOTE (Phase 2): see `OPEN_QUESTIONS.md` §2.** Phase 1 already introduced such
+> a knob — `MIN_VALUE_CHARS = 8` in `trifecta_lens/taint.py` — and it is **not**
+> disclosed per-finding. Phase 2 must either disclose it or promote it into this
+> exposed layer properly; an undisclosed threshold silently bounds what realized
+> can see, which makes "no finding" un-auditable.
 
 ## 5. Two stages, one process
 

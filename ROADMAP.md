@@ -22,6 +22,9 @@ model run.
   public-able artifact (post it even before the repo is public).
 
 ## Phase 2 — Generalize to the engine
+> Start from `OPEN_QUESTIONS.md` — four spec/design ambiguities deferred at
+> Checkpoint C, each to be resolved deliberately in planning, not in code.
+
 Extract the role **catalog** (config-driven labels) and the **path engine** from
 the slice — the engine is the fixed property automaton over labeled graphs
 (`DESIGN.md` §§2–5), consuming events as an incremental fold and emitting

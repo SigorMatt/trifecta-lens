@@ -74,11 +74,18 @@ distinguish "absent payload" from "empty payload" so the report can say so.
 ## Two kinds of fixture (keep them separate)
 
 1. **Format-validation / unit fixtures** — small, hand-authored, used to test the
-   loader and detectors (tasks 0.6, 1.5, 1.9). The example below is one.
-2. **The recorded demo trace** (`fixtures/demo_exfil.jsonl`, task 1.2) — this one
-   is **captured from a real `make demo-live` run**, never hand-written. A
+   loader and detectors (tasks 0.6, 1.5, 1.9). Currently `worked_example.jsonl`
+   (the example below) and `benign_no_flow.jsonl`. Never present one of these as
+   evidence of a real run.
+2. **Recorded traces** — **captured from real runs**, never hand-written. A
    fabricated "recorded" trace would violate the credibility principle
-   (`CLAUDE.md`): the demo's whole value is that it is a real exploited run.
+   (`CLAUDE.md`): the demo's whole value is that it really happened. Currently
+   `demo_realized.jsonl` (the realized anchor, task 1.2),
+   `triage_refused_sonnet5.jsonl`, and `triage_benign_control.jsonl`.
+
+Provenance for every fixture — what it is, how it was captured, and what it is
+allowed to be used to claim — lives in `fixtures/FIXTURES_PROVENANCE.md` (and
+`fixtures/demo_realized.provenance.md` for the anchor).
 
 ## Worked example (illustrative — fetch -> vault -> webhook)
 

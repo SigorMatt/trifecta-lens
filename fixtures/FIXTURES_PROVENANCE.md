@@ -31,3 +31,26 @@ Companion: fixtures/demo_realized.jsonl (+ .provenance.md) is the realized-posit
 anchor — a real direct-instruction (NON-injection) run on Llama-3.3-70B where the
 secret reaches the webhook sink verbatim. These two triage fixtures anchor the
 no-realized-finding cases; demo_realized anchors the positive.
+
+---
+
+HAND-AUTHORED fixtures (NOT captures — never present these as evidence of a real
+run). FIXTURES.md "two kinds of fixture", category 1: format/unit fixtures.
+
+worked_example.jsonl
+  authored: by hand, illustrative (FIXTURES.md §"Worked example")
+  shape: fetch (poisoned page) -> vault (secret) -> webhook (secret verbatim)
+  role: the loader's format check, AND the only fixture with a real
+        untrusted_source leg — so it is what exercises the exfil_trifecta
+        family's accepting path. Yields exactly one exfil_trifecta finding.
+
+benign_no_flow.jsonl
+  authored: by hand (task 1.9)
+  shape: vault (secret) -> webhook, but the webhook body is "integration key
+         present: yes" — the secret is NEVER posted.
+  role: the load-bearing benign case. Both the sensitive_data and sink:exfil
+        legs ARE present and labeled, so silence here cannot come from the
+        labeling: it can only come from the verbatim guard failing. The triage
+        fixtures are silent partly because they call no labeled tool at all;
+        this one is silent because the value did not reach the sink. That is the
+        false-positive-noise claim, made falsifiable.
