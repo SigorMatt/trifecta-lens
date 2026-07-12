@@ -146,34 +146,139 @@ Build the whole pipeline (ingest → label → detect → report → render) for
 
 ---
 
-## Phase 2 — Generalize to the engine  *(provisional — sharpen after 1.9)*
+## Phase 2 — Generalize to the engine
 
-> **Read `OPEN_QUESTIONS.md` first.** Four spec/design ambiguities surfaced at
-> Checkpoint C and were deliberately left unresolved: exact-vs-substring
-> matching, the undisclosed `MIN_VALUE_CHARS` extraction parameter, the path
-> being temporal rather than causal, and a blind spot in the 0.8 architecture
-> gate. Each must be decided in the planning chat — **not silently in code.**
+> **Read `DECISIONS.md` first** — the nine decisions (D1–D9) taken in the Phase 2
+> planning conversation, including the two research findings that proved
+> `SPEC.md` §7 (the "manifest") and `DESIGN.md` §1 (reachable-as-type-compat)
+> **wrong**. `OPEN_QUESTIONS.md` §§1–4 are resolved there as D3–D6.
+>
+> **`OPEN_QUESTIONS.md` §5 (multi-format input) is still OPEN**, and 2.7 is where
+> it gets answered — its deferral condition ("a real non-demo format in hand
+> before fixing the seam's shape") is satisfied by Checkpoint D. Do not
+> generalize the adapter layer ahead of that real format.
 
-- Extract the role **catalog** (data file: `match → role + subtype + note`,
-  `SPEC.md` §4); replace the 1.4 hardcoded labels with catalog lookup. The
-  catalog is the engine's labeling function — the only tunable layer
-  (`DESIGN.md` §4).
-- Extract the **path engine** from the slice **as the fixed property automaton
-  over labeled graphs** (`DESIGN.md` §§2–3, 5): leg-set lattice + register +
-  guard; one engine, both families. Two-stage seam: construction (front-end)
-  vs. engine; the engine never sees raw formats. **Binding constraints:** the
-  engine consumes events as an incremental fold (never requires the complete
-  trace); findings emit as an NDJSON append-stream (`DESIGN.md` §6).
-- Implement **reachable** (tool I/O type-compat graph) and **posture** (roles
-  present in manifest) as the guard-off / edges-off relaxations of the same
-  machine, per `SPEC.md` §5.
-- Ship the default v1 exfil catalog (common MCP servers + the source/sink lists
-  in `SPEC.md` §4); support `--catalog` overlay.
-- **Exit:** arbitrary manifest + trace → tiered findings; "point it at your own
-  agent" works end-to-end.
-- **Resolve from the slice first:** where tool I/O *schemas* live in a real MCP
-  manifest (drives reachable); how much the Event shape must change for
-  non-demo traces. Don't write 2.x PR tasks until these are known.
+**Shape of the phase.** One human capture (**Checkpoint D**) is the root
+dependency: it yields *both* the tool inventory and the real OTLP trace. Track A
+is independent of it and starts immediately; Track C is gated on it.
+
+**Standing rules** (unchanged from Phase 0/1): one task = one PR; spec-first
+(update `SPEC.md`/`DESIGN.md` in the same PR); write the fixture/test and its
+expected output **before** the implementation; each commit leaves `make check`
+green; check the box in the same commit.
+
+**Halt-and-ask points in this phase:** Checkpoint D itself; any change to the
+automaton's *structure* (states/transitions/acceptance — `DESIGN.md` §4); and
+**2.11's non-vacuity result** — if `reachable ⊊ posture` does not hold on the real
+captured inventory, STOP and decide (D7's constructed fallback), do not proceed by
+weakening the tier.
+
+---
+
+### Track A — the existing realized tier *(independent of Checkpoint D; start now)*
+
+- [ ] **2.1 Containment + disclosed extraction config** (D3 + D4; resolves
+  `OPEN_QUESTIONS.md` §§1–2). **Spec-first:** reconcile `SPEC.md` §6 ("Match =
+  exact"), `SPEC.md` §5 step 3 ("appears in") and `DESIGN.md` §8 ("substring") to
+  **one** wording — containment of the untransformed value. Promote
+  `MIN_VALUE_CHARS` into a declared extraction config, disclosed per-finding as
+  `detected_under` and in the report footer. Fixed, **not** user-tunable (invariant
+  2: the catalog stays the only knob). *Done when: the three passages agree; every
+  finding carries `detected_under`; and the constant ships with a **measured**
+  false-positive justification against the benign corpus — a number, not an
+  assertion.*
+- [ ] **2.2 `path_basis` labelling** (D5; resolves `OPEN_QUESTIONS.md` §3).
+  **Spec-first:** `SPEC.md` §5, `DESIGN.md` §1. Each path edge carries its basis
+  (`causal` from real `parent_id` ancestry, `temporal` from ordering alone); the
+  finding carries a **required** `path_basis` field (`causal`|`temporal`|`mixed`);
+  the SVG annotates the edge. *Done when: the anchor's finding reads
+  `path_basis: temporal` (correctly — its tool spans are siblings under the root);
+  a fixture with a real parent chain reads `causal`; and the SVG edge is labelled.
+  **Blocks any public artifact.***
+- [ ] **2.3 Harden the architecture gate to the stage seam** (D6; resolves
+  `OPEN_QUESTIONS.md` §4). The 0.8 gate learns `DESIGN.md` §5: tool-name-keyed data
+  is legal in **Stage 1** (loader, inventory front-end, catalog/labeling), illegal
+  in **Stage 2** (engine, findings, report, svg). *Done when the gate fails on a
+  per-tool dict table planted in `engine.py` and passes on the same table in
+  `labeling.py`.*
+
+### Track B — the real-MCP capture *(the root dependency)*
+
+- [ ] **2.4 Rebuild the demo as a real MCP client** (D8). MCP SDK over stdio
+  against **real reference servers**, with real OpenInference instrumentation and
+  OTLP export. Lives in `demo/`, outside core, so its transport/exec use never
+  trips the 0.4 gate. **Bounded to minimum-viable:** the smallest real setup that
+  can yield a multi-context inventory and a namespace-matching trace; servers
+  chosen for **realness + ease, not scenario drama**; **inert fail-closed sink, no
+  real credentials**; direct-instruction is fine (no live exploit required —
+  Checkpoint B precedent). *Done when a live run against real MCP servers emits
+  payload-level OTLP spans.*
+- [ ] **2.5 Inventory capture script** (D2). Outside core (`contrib/` or `demo/`).
+  Speaks `tools/list` to each configured server and writes the inventory JSON:
+  `contexts[]`, each with an id, its **effective** tool set, and a **human-written**
+  provenance note. *Done when it produces a well-formed inventory from a running
+  server set.*
+- [ ] 🛑 **CHECKPOINT D — human capture (halt).** A human runs 2.4 + 2.5 and
+  commits: the **inventory fixture** (≥2 contexts), the **real OTLP trace fixture**,
+  and provenance for both. **The build agent must never fabricate either artifact**
+  — same line as Checkpoint B. *Exit: both fixtures committed, with provenance
+  stating exactly what was captured and what it may be used to claim.*
+- [ ] **2.6 Inventory loader + the composability join** (D2, D8). Stage 1
+  front-end: inventory JSON → labeled topology values. **Spec-first:** correct
+  `SPEC.md` §7 — the manifest does **not** contain tools (D2/F1). *Done when the
+  captured inventory loads, **and** a fixture assertion proves the trace's tool
+  names match the inventory's tool names — the join that makes "the three tiers
+  describe one system" checkable rather than hoped-for.*
+- [ ] **2.7 Real OTLP / OpenInference front-end** (D9). A new Stage 1 adapter —
+  never an engine change (`FIXTURES.md`). Built against the **real captured trace**,
+  not an imagined one. Handles nested OTLP attribute arrays, MCP tool
+  **namespacing** (server-qualified tool identity — an `Event` shape change, so:
+  spec-first on `SPEC.md` §2), and the richer keys real traces carry
+  (`retrieval.documents.*` → RAG reads as `untrusted_source`; LLM message
+  payloads). *Done when the real captured trace loads to the expected Event stream
+  and the existing realized detector runs on it unchanged.*
+
+### Track C — the engine and the two new tiers *(gated on Checkpoint D)*
+
+- [ ] **2.8 Extract the catalog** (`SPEC.md` §4). The 1.4 `# TEMP` table becomes a
+  data file (`match → role + subtype + note`) plus a `--catalog` overlay. The
+  catalog is the labeling function and **the only tunable layer** (`DESIGN.md` §4).
+  *Done when the Phase-1 fixtures produce byte-identical findings with the labels
+  served from the catalog instead of the hardcoded table.*
+- [ ] **2.9 Extract the engine** as the fixed property automaton over labeled
+  graphs (`DESIGN.md` §§2–3, 5). Two-stage seam enforced: the engine sees labeled
+  graphs only — never JSONL, OpenInference keys, or the inventory format. **Binding:**
+  incremental fold; NDJSON append-stream (`DESIGN.md` §6). *Done when all Phase-1
+  findings are unchanged and the engine module imports no front-end.*
+- [ ] **2.10 Posture tier** (D1). Roles present in the **union** of the inventory's
+  contexts; no edges, no guard. *Done when the captured inventory yields posture
+  findings, and `realized ⊆ posture` is an executable property test.*
+- [ ] **2.11 Reachable tier + collapse disclosure + non-vacuity** (D1, D7).
+  Reachable = all legs co-exposed in **one context**; the same machine with edges on
+  and the guard off. **Must detect and disclose the collapse case**
+  (`reachable == posture` ⇒ say "reachable adds no information on this stack: all
+  legs share one context"). *Done when: the real captured inventory demonstrates
+  `reachable ⊊ posture` (**non-vacuity**); a single-context inventory triggers the
+  collapse disclosure; and `realized ⊆ reachable ⊆ posture` is an executable
+  property test.* **🛑 If non-vacuity fails on the real inventory, HALT** — do not
+  weaken the tier to make it pass; take D7's constructed fallback, which is itself
+  held to "instantiates a **documented in-the-wild topology**", not "discriminates".
+- [ ] **2.12 Tiered output across all three tiers.** Report, SVG and findings NDJSON
+  carry tier + family + `path_basis` + `detected_under`. Tier honesty holds in the
+  **text**, not just the logic (`CLAUDE.md` 3). *Done when a single run over
+  inventory + trace emits all three tiers, each correctly badged, and the honesty
+  gate scans the rendered output for all of them.*
+- [ ] **2.13 Default v1 exfil catalog + docs.** Catalog entries for the servers the
+  capture actually used, plus the source/sink lists in `SPEC.md` §4.
+  `CONTRIBUTING.md` frames "add a catalog entry" as the contribution path.
+  *Done when a stranger's server can be covered by editing data, not code.*
+
+**Exit:** a real MCP stack's inventory + a real trace → all three tiers, honestly
+tiered and disclosed; "point it at your own agent" is **true**, not aspirational.
+
+**Honest fallback (D9), retained:** if 2.7 overruns, reword the exit and defer the
+OTLP adapter to Phase 3. What we do *not* do is claim "point it at your own agent"
+while only our own hand-shaped JSONL loads.
 
 ## Phase 3 — Harden for public  *(provisional)*
 

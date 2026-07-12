@@ -22,8 +22,11 @@ model run.
   public-able artifact (post it even before the repo is public).
 
 ## Phase 2 — Generalize to the engine
-> Start from `OPEN_QUESTIONS.md` — four spec/design ambiguities deferred at
-> Checkpoint C, each to be resolved deliberately in planning, not in code.
+> Start from `DECISIONS.md` (D1–D9, taken in Phase 2 planning). Two of them
+> correct the specs: the MCP "manifest" does not contain tools, and reachable is
+> co-exposure in one agent context — not type-compatibility. `OPEN_QUESTIONS.md`
+> §§1–4 are resolved there. One human capture (Checkpoint D) is the root
+> dependency for the two new tiers and for OTLP.
 
 Extract the role **catalog** (config-driven labels) and the **path engine** from
 the slice — the engine is the fixed property automaton over labeled graphs
