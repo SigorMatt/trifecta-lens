@@ -14,25 +14,52 @@ it: a gate fails the build if detection code branches on a tool name or looks on
 in a table. If your change needs an `if tool == "..."` in the engine, the change is
 wrong — the coverage belongs in the catalog.
 
-## Adding coverage
+> Every YAML example below is parsed by the real catalog parser and run through the
+> real labeling function in [`tests/test_contributing.py`](tests/test_contributing.py).
+> If an example here stops working, CI goes red. Copy-paste is meant to work.
 
-An entry is four fields:
+## Cover your own stack
+
+Say your agent talks to two servers this project has never heard of: a CRM that reads
+customer rows, and an internal wiki it can publish pages to. Under the shipped catalog
+they are **invisible** — unlabeled tools get no roles, and the machine stays silent
+about them, correctly.
+
+Write an overlay:
 
 ```yaml
-  - id: acme.crm.rows                       # stable id — findings cite it
-    match: {tool: "crm__read_customer_rows"}  # anchored regex over the tool name
-    role: sensitive_data                    # untrusted_source | sensitive_data | sink
-    subtype: null                           # exfil | impact, for sinks only
+# my-stack.yaml — the whole contribution: data.
+version: 1
+entries:
+  - id: acme.crm.rows                          # stable id — findings cite it
+    match: {tool: "crm__read_customer_rows"}   # anchored regex over the tool name
+    role: sensitive_data                       # untrusted_source | sensitive_data | sink
     note: "returns customer PII rows from our CRM"   # the rationale, shown in output
+
+  - id: acme.wiki.publish
+    match: {tool: "wiki__publish_page"}
+    role: sink
+    subtype: exfil                             # exfil | impact — sinks only
+    note: "publishes a page to the company-wide wiki, readable by everyone"
 ```
+
+Point the analyzer at it:
+
+```
+trifecta-lens --trace my-trace.jsonl --inventory my-inventory.json --catalog my-stack.yaml
+```
+
+The **unmodified** engine now detects the full trifecta on your stack. Nothing was
+recompiled, no branch was added, and no one had to teach the machine what a CRM is.
+Your entries are consulted *before* the defaults, so where you and we disagree about a
+tool, you win.
 
 Under MCP a tool's identity is **server-qualified** — `<server>__<tool>`, e.g.
 `filesystem__read_text_file` — because two servers may each expose a `read`. That is
 the name the trace carries and the name your `match.tool` regex should expect.
 
-You do not have to touch this repo at all. `--catalog my.yaml` overlays your entries
-on top of the defaults, and your entries win. Ship your stack's labels with your
-stack.
+You do not have to touch this repo at all: ship your stack's labels with your stack.
+Send them upstream only if they generalize.
 
 ## Disagreeing with a label
 
@@ -44,7 +71,9 @@ Every finding names the entry that assigned each role:
 ```
 
 That id is the thing to change. Override it in an overlay, or send a PR against the
-default catalog if we got it wrong for everyone.
+default catalog if we got it wrong for everyone. You never have to read our source to
+find out why we said what we said — that is the whole reason the citation is in the
+output rather than in a design doc.
 
 ## What makes a good entry
 
@@ -62,23 +91,41 @@ So:
   on a public issue publishes the payload as surely as a POST does; it just does not
   look like one.
 - **Write the `note` for the person who will disagree with you.** It is shown in the
-  finding, and it is the whole basis on which they will decide you were wrong.
+  finding, and it is the whole basis on which they will decide you were wrong. It is
+  also report text, so it observes the same discipline the report does: it describes
+  what a tool *does*, never what someone did with it.
 - **If the naming is genuinely ambiguous, don't guess.** Say so in a comment and
   leave it out. There is an example in the catalog (RAG reads) — the pattern would
   have to be `search|query|retrieve`, which collides with harmless tools, so it waits
   for a real trace instead of shipping a guess.
+
+## Sending an entry upstream
+
+A catalog PR is small. It is also the one kind of change that can quietly make the
+tool *lie*, so it carries its own evidence:
+
+- [ ] The entry, in `trifecta_lens/catalogs/exfil_v1.yaml`.
+- [ ] **A positive fixture** — a trace (or inventory) in which your entry produces the
+      finding you expect, with the expected verdict pinned in a test.
+- [ ] **A benign fixture** — one where the tool is present and the finding must *not*
+      fire. This is the more valuable of the two: it is what proves the entry is not
+      simply louder than the truth.
+- [ ] A provenance note in [`fixtures/FIXTURES_PROVENANCE.md`](fixtures/FIXTURES_PROVENANCE.md)
+      saying whether the fixture was **captured** or **hand-authored**. Both are
+      welcome. Only one of them may be called a recording.
+- [ ] `make check` green. If the change is *meant* to move the findings output, run
+      `make golden` and commit the regenerated bytes, so the change lands as a
+      reviewable diff instead of silent drift.
 
 ## Changing anything else
 
 - **`SPEC.md` leads, the code follows.** If a change isn't described there, update it
   in the same PR.
 - **Fixtures are the executable spec.** Every detector behavior is anchored by a
-  trace/inventory fixture plus its expected verdict. Write the fixture first. A
-  benign fixture that must produce *no* finding is as valuable as a positive one.
-- **`make check` must be green** — `ruff`, `mypy`, `pytest`, plus the honesty and
-  architecture gates. If your change is *meant* to move the findings output, run
-  `make golden` and commit the regenerated bytes so the change lands as a reviewable
-  diff instead of silent drift.
+  trace/inventory fixture plus its expected verdict. Write the fixture first.
+- **The findings NDJSON is a public contract.** Its shape is frozen and versioned in
+  [`schema/findings.schema.json`](schema/findings.schema.json); adding, removing or
+  renaming a field without the version bump fails CI. Consumers parse those lines.
 - **The automaton's structure is closed.** States, transitions and acceptance
   (`DESIGN.md` §4) are the honesty contract. Changing them is a spec decision, not an
   implementation one — open an issue first.

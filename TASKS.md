@@ -533,9 +533,25 @@ while only our own hand-shaped JSONL loads.
   not buried. `tests/test_incidents.py` makes "every incident cites a primary
   source + a verification date" executable, so no motivating incident can be added
   without the verification. Consumed by 3.1. `make check` green (231 tests).
-- [ ] **3.5 `CONTRIBUTING.md` — the catalog-entry flywheel.** Frame "add a catalog
+- [x] **3.5 `CONTRIBUTING.md` — the catalog-entry flywheel.** Frame "add a catalog
   entry" as the contribution path (2.13 proved a stranger's server is covered by
-  editing data, not code). *(Note: a `CONTRIBUTING.md` stub already exists.)*
+  editing data, not code). — The guide now walks the path end to end: an unknown
+  stack (a CRM + an internal wiki) is invisible under the defaults, one **complete,
+  copy-pasteable overlay file** makes the *unmodified* engine detect the trifecta on
+  it, and the finding cites the entry id so a reader who disagrees knows what to
+  edit. Plus an upstream-PR checklist whose load-bearing item is the **benign**
+  fixture ("the more valuable of the two: it is what proves the entry is not simply
+  louder than the truth") and a provenance note stating captured vs hand-authored.
+  **The doc is executed, not merely written:** `tests/test_contributing.py` parses
+  every YAML block in it with the **real** `parse_catalog`, runs the documented
+  overlay through the **real** labeling function (unknown stack → silent; + overlay →
+  `sensitive_data` + `sink:exfil`, contributor's note winning the citation), asserts
+  the `[catalog: …]` id it shows is a real shipped entry **rendered in that exact
+  shape** by the real report, checks every repo path it links to exists, and runs the
+  0.8 banned-token gate over the prose — because a contribution guide teaches every
+  future entry's `note`, and a `note` **is** report text. A doc that fails on a
+  stranger's first copy-paste is worse than no doc; now it cannot rot without CI
+  going red.
 - [ ] **3.6 `pipx` / `uvx` install path.** Package so a stranger runs it on their
   own agent in ~60s (the exit). *Done when the console-script installs and runs
   from a clean environment.*
