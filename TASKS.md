@@ -237,7 +237,7 @@ weakening the tier.
 > come from an agent that really drives the MCP servers, not from local Python
 > functions (`DECISIONS.md` D8).
 
-- [ ] **2.4 Rebuild the demo as a real MCP client** (D8). MCP SDK over stdio
+- [x] **2.4 Rebuild the demo as a real MCP client** (D8). MCP SDK over stdio
   against **real reference servers**, with real OpenInference instrumentation and
   OTLP export. Lives in `demo/`, outside core, so its transport/exec use never
   trips the 0.4 gate. **Bounded to minimum-viable:** the smallest real setup that
@@ -245,7 +245,19 @@ weakening the tier.
   chosen for **realness + ease, not scenario drama**; **inert fail-closed sink, no
   real credentials**; direct-instruction is fine (no live exploit required —
   Checkpoint B precedent). *Done when a live run against real MCP servers emits
-  payload-level OTLP spans.*
+  payload-level OTLP spans.* — New Phase 2 harness under `demo/`: `mcp_config.py`
+  (topology as data + `<server>__<tool>` namespacing), `sink_server.py` (the
+  **inert, fail-closed** `notify` MCP server), `mcp_client.py` (async
+  tools/list + tools/call loop), `otel_export.py` (real OTel tracer → official
+  OTLP encoder → OTLP/JSON), `run_mcp.py`. Servers: `fetch` (uvx
+  mcp-server-fetch) + `filesystem` (npx server-filesystem, scoped to
+  `demo/vault`) + our `notify` sink. **Pipeline proven end-to-end** by a scripted
+  provider (no model, no credits): real stdio to all three servers, real
+  `tools/call`, namespaced routing, OTLP spans with the OpenInference keys the
+  core loader keys on — the fake secret reaches the sink verbatim in
+  `input.value`. The **model-driven** capture is Checkpoint D. The Phase 1 flat
+  harness is retained only for the anchor replay (`make demo`). Heavy SDKs
+  imported lazily, so `make check` (dev-only) stays green.
 - [ ] **2.5 Inventory capture script** (D2). Outside core (`contrib/` or `demo/`).
   Speaks `tools/list` to each configured server and writes the inventory JSON:
   `contexts[]`, each with an id, its **effective** tool set, and a **human-written**

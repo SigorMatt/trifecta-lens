@@ -21,14 +21,24 @@ dev = [
     "mypy>=1.11",
     "pytest>=8",
 ]
-# demo/ only (the human-run `make demo-live`, task 1.2). Isolated from the
-# analyzer core, which has zero runtime dependencies: `make check` uses `dev`
-# and never installs this. The client packages are the demo's transports:
-# `anthropic` for the Anthropic endpoint, `openai` for the Ollama
-# (OpenAI-compatible) endpoint. Core stays stdlib-pure.
+# demo/ only (the human-run captures). Isolated from the analyzer core, which
+# has zero runtime dependencies: `make check` uses `dev` and never installs this.
+# Every demo module imports these lazily (inside functions), exactly as
+# providers.py imports its SDK, so the modules import and unit-test without the
+# extra — only a live capture pulls the packages in. Core stays stdlib-pure.
+#   Transports: `anthropic` (Anthropic endpoint), `openai` (OpenAI-compatible /
+#   Ollama / Hugging Face router endpoints).
+#   Real-MCP capture (Phase 2, task 2.4/2.5): `mcp` is the MCP client/server SDK
+#   (stdio transport); `opentelemetry-sdk` + the OTLP proto-common encoder emit a
+#   REAL OTLP trace document; `openinference-semantic-conventions` supplies the
+#   OpenInference attribute keys the core loader already keys on.
 demo = [
     "anthropic>=0.40",
     "openai>=1.0",
+    "mcp>=1.2",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-common>=1.20",
+    "openinference-semantic-conventions>=0.1.9",
 ]
 
 [tool.hatch.build.targets.wheel]

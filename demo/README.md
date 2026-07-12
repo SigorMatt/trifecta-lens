@@ -5,6 +5,26 @@ the harness that records its execution as OpenInference spans. It exists to
 produce the project's realized-detection anchor: one real, exploited run whose
 trace is captured and frozen as `fixtures/demo_exfil.jsonl` (task 1.2).
 
+## Two harnesses (read this first)
+
+There are now **two** harnesses in this directory, and they are different on
+purpose:
+
+1. **The Phase 1 flat harness** (`agent.py`, `tools.py`, `spans.py`,
+   `run_live.py`, `run_direct.py`). The "tools" are **local Python functions**
+   handed to a model — there is no MCP here. It records the simplified *flat*
+   OpenInference JSONL the Phase 1 core loader ingests directly. It is retained
+   solely because it backs the frozen Phase 1 anchor (`fixtures/demo_realized.jsonl`)
+   and `make demo` replay; **new captures do not use it.**
+
+2. **The Phase 2 real-MCP harness** (`mcp_config.py`, `sink_server.py`,
+   `mcp_client.py`, `otel_export.py`, `run_mcp.py`, `capture_inventory.py`).
+   This is a **real MCP client**: it launches real reference servers over stdio,
+   discovers tools with `tools/list`, dispatches with `tools/call`, and exports a
+   **real OTLP** trace (`DECISIONS.md` D8). It also captures the **tool inventory**
+   the posture/reachable tiers key on. This is the harness the Checkpoint D
+   capture uses. See *"The real-MCP harness"* below.
+
 It lives **outside** the analyzer core (`trifecta_lens/`). Network and process
 side effects are allowed here and only here — the core never opens a network
 connection (CLAUDE.md invariant 1), and nothing in the core imports from
@@ -101,12 +121,70 @@ anchor: commit it as `fixtures/demo_exfil.jsonl`. This capture-and-commit is
 **task 1.2** and is done by a human — the trace is never hand-authored
 (FIXTURES.md, CLAUDE.md).
 
+## The real-MCP harness (Phase 2, tasks 2.4 / 2.5)
+
+The Phase 2 harness drives **real MCP servers**, chosen for realness + ease, not
+scenario drama (`DECISIONS.md` D8):
+
+| Server       | Launch                                              | Role in the trifecta |
+| ------------ | --------------------------------------------------- | -------------------- |
+| `fetch`      | `uvx mcp-server-fetch`                               | untrusted source     |
+| `filesystem` | `npx @modelcontextprotocol/server-filesystem vault` | sensitive data       |
+| `notify`     | `python -m demo.sink_server`                        | outbound exfil sink  |
+
+`fetch` and `filesystem` are the stock reference servers. `notify` is our own
+**inert, fail-closed** MCP server (`sink_server.py`): its `send` tool records a
+body and **never opens a network connection** — a sink *topology* with no real
+credentials and no real exfiltration.
+
+Two agent **contexts** are declared in `mcp_config.py`, deliberately asymmetric
+so that reachable is a **strict subset** of posture (`DECISIONS.md` D1/D7):
+`assistant` sees all three servers; `triage` sees fetch + filesystem but **no
+sink**. Tool identity is namespaced `<server>__<tool>` (e.g.
+`filesystem__read_text_file`) by both capture halves, so the trace's tool names
+are a subset of the inventory's — the composability join.
+
+**The inventory half needs no model — run it first (it is free):**
+
+```sh
+uv run --extra demo python -m demo.capture_inventory   # -> fixtures/inventory.json
+```
+
+**The trace half drives one context with a model** (defaults to the Hugging Face
+router; the capture log records the 7-8B tier failing to thread a value verbatim
+while Llama-3.3-70B succeeds):
+
+```sh
+DEMO_ENDPOINT=hf HF_TOKEN=hf_... \
+  uv run --extra demo python -m demo.run_mcp        # -> fixtures/demo_mcp_trace.otlp.json
+```
+
+Both are captured, never hand-authored (`AGENT.md`, `CLAUDE.md`). Review the
+outputs, then commit them with provenance — this is **Checkpoint D**.
+
+All Phase 2 modules import the heavy SDKs (`mcp`, OpenTelemetry) **lazily**, so
+they import and unit-test with only the `dev` extra (mirroring `providers.py`);
+`make check` never installs the `demo` extra.
+
 ## Files
 
-- `tools.py` — the three tool stubs (pure, unit-tested in
-  `tests/test_demo_harness.py`).
+Phase 1 flat harness (retained for the anchor replay only):
+
+- `tools.py` — the three local-function tool stubs (pure, unit-tested).
 - `spans.py` — the flat OpenInference span recorder.
-- `agent.py` — the Anthropic tool-calling host + span instrumentation.
-- `run_live.py` — `make demo-live` entrypoint; env-var check and wiring.
-- `poisoned.html` — the untrusted page with the hidden instruction.
-- `secret.txt` — a clearly fake demo secret (never a real credential).
+- `agent.py` — the local-function tool-calling host + span instrumentation.
+- `providers.py` — the model transport seam (Anthropic / OpenAI-compatible / HF).
+- `run_live.py` / `run_direct.py` — the Phase 1 live-capture entrypoints.
+- `replay.py` — replays the frozen anchor through the core loader (`make demo`).
+- `poisoned.html`, `secret.txt` — the untrusted page and the fake demo secret.
+
+Phase 2 real-MCP harness:
+
+- `mcp_config.py` — the topology as data: servers, contexts, and the
+  `<server>__<tool>` namespacing shared by both capture halves.
+- `sink_server.py` — the inert, fail-closed `notify` MCP server.
+- `mcp_client.py` — the async MCP tool-calling loop + OTel instrumentation.
+- `otel_export.py` — records real OpenInference spans as a real OTLP document.
+- `run_mcp.py` — the trace-capture entrypoint.
+- `capture_inventory.py` — the model-free `tools/list` inventory capture.
+- `vault/integration_key.txt` — the fake sensitive value (never a real credential).
