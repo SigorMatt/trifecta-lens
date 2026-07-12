@@ -6,9 +6,21 @@ to `SPEC.md` §5 (tier behavior) and `CLAUDE.md` (invariants).
 
 ## 1. Two graphs, not one
 
-- **Topology graph** — vertices are tools/agents from the manifest; edges are
-  "could feed" (tool I/O schema type-compatibility). Input to **reachable**;
-  its degenerate form (vertices only, no edges) is the input to **posture**.
+- **Topology graph** — vertices are the tools in the captured **inventory**; edges
+  are **co-exposure within one agent context** (`SPEC.md` §5, `DECISIONS.md` D1):
+  two tools are connected when the same agent context can invoke both, because the
+  model between them will move data freely. Input to **reachable**; its degenerate
+  form (vertices only, no edges — the union across all contexts) is the input to
+  **posture**.
+
+  > **Edges are NOT tool-I/O type-compatibility.** That was this document's
+  > original definition and it is wrong (`DECISIONS.md` F2). In an agent, data does
+  > not flow tool→tool through matching types; it flows **tool→model→tool**, and the
+  > model is a universal connector that will retype and copy any value anywhere.
+  > Type-compat therefore constrains nothing: `outputSchema` is optional and usually
+  > absent, string-typed properties dominate where schemas do exist, and the graph
+  > comes out near-complete. Co-exposure is the edge relation that actually carries
+  > information.
 - **Trace event graph** — vertices are events (spans); edges are causal
   ancestry (`parent_id`) plus temporal order. Input to **realized**.
 
@@ -65,8 +77,8 @@ acceptance**. The guard is precisely what separates realized from reachable.
 | Tier | Graph | Edges | Register/guard |
 |---|---|---|---|
 | Realized | trace event graph | causal + temporal | **on** |
-| Reachable | topology graph | schema type-compat | off |
-| Posture | bag of manifest roles | none | off |
+| Reachable | topology graph | **co-exposure in one context** | off |
+| Posture | bag of inventory roles (union of contexts) | none | off |
 
 Drop the guard → reachable. Drop the edges → posture. Therefore
 **realized ⊆ reachable ⊆ posture by construction** — tier honesty becomes a
@@ -107,12 +119,12 @@ path; the matched value (masked) is the evidence.
 
 - **Stage 1 — construction (front-end).** Pure functions: raw inputs → labeled
   graph values. Trace JSONL → event graph (loader + ancestry reconstruction);
-  manifest + schemas → topology graph; manifest → posture bag. Catalog
+  inventory → topology graph (co-exposure edges); inventory → posture bag. Catalog
   labeling happens here — vertices come out carrying their symbols. All
   parsing mess (mime types, missing payloads, malformed spans) is confined
   here.
 - **Stage 2 — engine.** Labeled graph in → findings out. Never sees JSONL,
-  OpenInference attribute keys, or the manifest format.
+  OpenInference attribute keys, or the inventory format.
 
 These are **in-process stages, not OS processes**: one deterministic run, no
 IPC or serialization boundary where ordering/encoding could drift. The seam —
@@ -180,7 +192,7 @@ network use never trips the 0.4 guard.
 - **Serialization:** stdlib `json` with `sort_keys=True` everywhere findings
   are written — enforce with a test, not convention.
 - **Accepted dependencies:** PyYAML for the catalog (human-edited contributor
-  format earns YAML). Pydantic only if catalog/manifest validation errors get
+  format earns YAML). Pydantic only if catalog/inventory validation errors get
   painful — start without; a dependency tree readable in one screen is itself
   a feature for a tool whose moat is auditability.
 - **SARIF** (Phase 4) is plain JSON; no library.

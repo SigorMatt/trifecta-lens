@@ -8,15 +8,15 @@ architecture: the property automaton, stage seam, and technology decisions).
 ## 1. Goal and scope
 
 Detect data-exfil exposure in MCP/agent systems by analyzing a captured trace
-plus the MCP manifest, and report findings in three tiers. **v1 scope is the
-exfil family** (untrusted source → sensitive data → outbound sink). The
+plus the agent's captured tool inventory (§7), and report findings in three
+tiers. **v1 scope is the exfil family** (untrusted source → sensitive data → outbound sink). The
 action-hijack family (source → impact sink) is fast-follow, posture/reachable
 only. See §8 for explicit non-goals.
 
 ## 2. Data model
 
 Spans are normalized into a flat **Event** stream; every tier is a projection
-over the same stream + the manifest.
+over the same stream + the inventory.
 
 ```
 Event:
@@ -116,24 +116,38 @@ leg-set lattice whose acceptance condition is the family's sink with the
 required legs present in the path's ancestry (source/sensitive order is
 immaterial; the sink terminates the path) — evaluated over progressively
 weaker inputs. Realized runs it over the trace event graph with a
-value-match guard; reachable over the schema topology graph without the guard;
-posture over the bag of manifest roles without edges. **Realized ⊆ reachable ⊆
+value-match guard; reachable over the co-exposure topology graph without the
+guard; posture over the bag of inventory roles without edges. **Realized ⊆ reachable ⊆
 posture by construction.** Full formulation in `DESIGN.md` §§2–3.
 
 Three tiers, three different inputs. All three are computable from **one trace +
-the manifest** — reachable does not require multiple runs.
+the inventory** — reachable does not require multiple runs.
 
-### Posture — keyed to the manifest
-Compute the set of roles present among the manifest's tools. Emit a finding if a
-family's required legs are all present (exfil: all three; hijack: source +
-impact). Breadth: covers every present combination. This tier overlaps existing
-static scanners — **never headline it.**
+### Posture — keyed to the inventory, across all contexts
+Compute the set of roles present in the **union** of the tool inventory's contexts
+(§7). Emit a finding if a family's required legs are all present anywhere in the
+stack (exfil: all three; hijack: source + impact) — **even if no single agent
+context can reach them all**. Breadth: covers every present combination. This tier
+overlaps existing static scanners — **never headline it.**
 
-### Reachable — keyed to the tool I/O schemas
-Build a type-compatibility graph: tool A's output type can feed tool B's input
-type. Emit a finding if a path connects a `source`-role tool to a `sink`-role
-tool (through a `sensitive` tool for the exfil family). It means "a data path
-*connects* even though no run wired it." Still no runtime required.
+### Reachable — keyed to co-exposure within one agent context
+Emit a finding if a family's required legs are **all exposed to the same agent
+context's effective tool set** — i.e. one run *could* wire them, though none did.
+This is the lethal-trifecta condition proper. Still no runtime required.
+
+**Reachable is NOT a tool-I/O type-compatibility graph.** That was the original
+design and it is wrong (`DECISIONS.md` D1/F2): in an agent, the **model's context
+is a universal connector** — data flows tool → model → tool, and the model will
+retype, reformat and copy any string anywhere. Schema type-compatibility therefore
+does not *constrain* reachability, `outputSchema` is optional and usually absent
+in practice, and the resulting graph is near-fully-connected. Such a tier would
+satisfy `realized ⊆ reachable ⊆ posture` **trivially, while carrying no
+information** — the tier-honesty failure, occurring inside the tier structure.
+
+**Binding on this tier:** on a single-context stack, reachable is *necessarily*
+equal to posture. The tool must **detect that collapse and disclose it** ("reachable
+adds no information on this stack: all legs share one context") rather than
+presenting a tier that silently says nothing.
 
 ### Realized — keyed to the trace
 1. Tag values originating in `untrusted_source` and `sensitive_data` spans
@@ -183,7 +197,30 @@ defined in `FIXTURES.md`.
   id, parent/trace linkage, start time, tool name, and **payload-level**
   input/output. Missing payloads → realized `UNAVAILABLE`, posture/reachable
   still run.
-- Manifest: MCP server/tool config (the same file the host loads).
+- **Tool inventory**: a **captured** artifact — one file, holding a `contexts[]`
+  array; each context is an id, a human-written provenance note, and its
+  **effective exposed tool set** (the `tools/list` entries actually reachable by
+  that agent context). Posture reads the union of contexts; reachable reads each
+  context.
+
+  > **The MCP "manifest" does not contain tools.** An earlier draft of this spec
+  > said the manifest was "MCP server/tool config (the same file the host loads)."
+  > That is **false** (`DECISIONS.md` D2/F1). The file the host loads
+  > (`claude_desktop_config.json` / `.mcp.json`) carries only
+  > `mcpServers: {command, args, env}` — launch config. Tool definitions (`name`,
+  > `description`, `inputSchema`, optional `outputSchema`, `annotations`) exist
+  > **only at runtime**, returned by a `tools/list` request to a *running* server.
+  > Core may not go get them: launching a server and speaking a transport to it
+  > violates invariant 1. Hence a **captured** inventory, produced by a capture
+  > step outside core — the same architectural move as `demo/`.
+  >
+  > The inventory records the **effective** tool set, not the *cause* of it. A
+  > context narrowed by a subagent allowlist, a deny list, or a smaller server
+  > loadout all look identical: a smaller tool set. We do not model why. This is
+  > **flow-not-causation applied to topology**.
+
+- The launch config (`mcp.json`) remains useful only for **server identity**, and
+  is optional.
 - User catalog: optional overlay file that adds/overrides role entries (§4).
   This is how a user extends coverage to their own stack without touching code.
 
@@ -202,8 +239,9 @@ defined in `FIXTURES.md`.
 
 **Invocation shape**
 ```
-trifecta-lens <manifest> --trace <spans.jsonl> [--catalog user.yaml]
-trifecta-lens <manifest>                 # posture + reachable only (no trace)
+trifecta-lens --inventory <inventory.json> --trace <spans.jsonl> [--catalog user.yaml]
+trifecta-lens --inventory <inventory.json>     # posture + reachable only (no trace)
+trifecta-lens --trace <spans.jsonl>            # realized only (no inventory)
 ```
 
 ## 8. Explicit non-goals (parked — do not claim support)

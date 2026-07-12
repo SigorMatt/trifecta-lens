@@ -4,6 +4,31 @@ Each phase exits with a **demoable** result and a **shareable moment**. Build in
 this order; resist pulling later work forward. Tiers and scope per `SPEC.md`;
 engine architecture per `DESIGN.md`.
 
+## How this plan is made (read before asking for a master schedule)
+
+**Plan one phase deep. Execute it stage-by-stage. Let it inform the next
+planning chat.**
+
+Phases 0–2 are specified. Phases 3–4 are deliberately **provisional**, and the
+stage/PR breakdown *inside* a phase does not exist until that phase's planning
+conversation produces it. This is structural, not a gap in the plan:
+
+- Phase 1's real shape only became knowable **after** Phase 0 shipped.
+- Phase 1 then forced a spec change **nobody could have scheduled in advance** —
+  the two-leg `sensitive_to_exfil_sink` family, which only became necessary once
+  a real captured trace turned out to have no untrusted-source leg.
+- Phase 2 planning then proved **two committed specs wrong** (`DECISIONS.md` F1,
+  F2): the MCP "manifest" contains no tools, and reachable-as-type-compatibility
+  is near-vacuous. Neither was foreseeable from Phase 1.
+
+A detailed Phase 3/4 breakdown written today would be **fiction** — and writing
+it would be the "pulling breadth forward" `CLAUDE.md` forbids. Each phase's exit
+becomes the brief for the next phase's planning chat.
+
+**The cadence:** planning chat → phase task list with halt points → execute →
+phase exit → next planning chat. It is what got Phase 1 through cleanly, and it
+is why the checkpoints (human capture steps) fall where they do.
+
 ## Phase 0 — Skeleton & contract
 Repo, license, `CLAUDE.md`, `SPEC.md`, this file, CI (ruff/mypy/pytest + the
 "no network in core" check), and the trace-fixture format.
@@ -32,26 +57,54 @@ Extract the role **catalog** (config-driven labels) and the **path engine** from
 the slice — the engine is the fixed property automaton over labeled graphs
 (`DESIGN.md` §§2–5), consuming events as an incremental fold and emitting
 findings as an NDJSON append-stream (both binding, `DESIGN.md` §6). Implement
-all three tiers per spec: realized from trace, reachable from tool I/O schema,
-posture from manifest. Ship the default catalog for the v1 exfil family (common
-MCP servers, the source/sink lists in `SPEC.md` §4). Support `--catalog` overlay.
-- **Exit:** runs against an *arbitrary* MCP manifest + trace and emits tiered
-  findings; "point it at your own agent" works end-to-end.
-- **Shareable:** "run it on your own MCP agent in one command" demo/gif.
+all three tiers: **realized** from the trace, **reachable** as co-exposure in one
+agent context, **posture** as the roles present across the captured inventory's
+contexts (D1). Ship the default catalog for the v1 exfil family and the
+`--catalog` overlay.
 
-## Phase 3 — Harden for public launch
+**The prediction in this file's earlier draft landed, and the reality is worse
+than it guessed.** Phase 2 was expected to need "a manifest-sourcing human step,
+analogous to Checkpoint B." It does — but there is no manifest to source: the
+file the host loads carries no tools at all, so the human step is a **real-MCP
+capture** producing a *tool inventory* + a real OTLP trace (**Checkpoint D**,
+D2/D8). Sourcing it **early**, as its own checkpoint, so the engine is designed
+against a real inventory rather than a guessed one, is decided: it is the phase's
+**root dependency**, not a mid-phase surprise. Same lesson as capturing the real
+trace instead of hand-authoring it.
+
+- **Exit:** runs against a real MCP stack's **captured inventory** + a real trace
+  and emits tiered findings; "point it at your own agent" works end-to-end.
+- **Shareable:** "run it on your own MCP agent in one command" demo/gif.
+- Tasks: `TASKS.md` 2.1–2.13. Decisions: `DECISIONS.md` D1–D9.
+
+## Phase 3 — Harden for public launch  *(provisional)*
 README with the documented-incident citations and the honesty section;
 `CONTRIBUTING.md` framing catalog entries as the contribution path (the
 flywheel); swappable-payload story; `pipx`/`uvx` install; findings NDJSON schema
 frozen; benign-fixture suite proving low false-positive noise.
+
+**The bill that comes due here: the incident citations must be
+primary-source-verified.** A tool whose entire moat is not overclaiming cannot
+launch on second-hand incident summaries. Budget the verification work; do not
+discover it during launch week.
+
 - **Exit:** a stranger installs and runs it on their own agent in ~60s.
 - **Shareable:** the launch (HN / Show, social, the awesome-lists). This is the
-  public moment.
+  public moment — the first phase whose shareable is external, not an internal
+  screenshot.
 
-## Phase 4 — Fast-follow: action hijack + CI surface
+## Phase 4 — Fast-follow: action hijack + CI surface  *(provisional)*
 Action-hijack family (source → `sink:impact`), **posture + reachable only** —
 hold realized until there's a defensible causation signal, and say so. Add SARIF
 output and a GitHub Action so findings land in code-scanning.
+
+**Phase 2 hands this phase a foothold it didn't have:** D5 makes `path_basis`
+(`causal` | `temporal` | `mixed`) a required field. Action-hijack's realized tier
+is blocked precisely on "no defensible causation signal" — and `path_basis` is
+the beginning of the vocabulary for one. Whether a genuine `causal` chain is
+*sufficient* to release action-hijack realized is a **halt-and-ask**, not a
+default.
+
 - **Exit:** action-hijack posture/reachable findings + SARIF in a CI run.
 - **Shareable:** "gate your agent's PRs on trifecta findings" Action.
 
