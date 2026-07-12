@@ -142,3 +142,35 @@ catalog/labeling front-end (Stage 1) and illegal in the engine (Stage 2),
 which is just `DESIGN.md` §5's two-stage seam expressed as a gate. Until then,
 the invariant is upheld by review, and this file is the record that we know the
 gate alone does not uphold it.
+
+## 5. Multi-format input support — where format-specific handling lives
+
+**Tension:** Different agents/tools produce different output shapes. Two distinct
+layers are involved and must not be conflated: the *telemetry envelope* (span
+structure / attribute keys — standardized on OTel/OpenInference) and the *payload
+contents* inside input.value/output.value (JSON vs HTML vs base64 vs nested
+objects), which genuinely diverge per tool. v1 consumes exactly one envelope
+dialect (the flat OpenInference JSONL the demo harness emits).
+
+**Where it surfaces:** Stage 1 (construction) — the loader and value extraction
+(SPEC §6). The engine (Stage 2) is format-blind and must stay so.
+
+**Why deferred:** Building a general pluggable-format abstraction against a single
+known format produces a speculative design the second real format will break
+(same lesson as capturing vs hand-authoring the trace). We need at least one real
+non-demo trace/format in hand before fixing the seam's shape. This is the same
+decision as the Event-shape open question, viewed from the format angle — resolve
+them together.
+
+**What Phase 2 must decide:**
+- Confirm the split: envelope adapters (framework/dialect → Event) and payload
+  value-extractors (varied cargo → taint values) BOTH live in Stage 1; the
+  automaton never learns what any framework is.
+- "Add support for an agent" = add a Stage-1 adapter/extractor (bounded mapping +
+  data), never a new engine branch — extend "catalog, not per-path code" to the
+  format layer.
+- Ship one format now (flat OpenInference). Name the nested-OTLP exporter adapter
+  as the first Phase 2+ addition (per FIXTURES.md), but do NOT generalize the
+  adapter layer until a real second format forces its shape.
+- Decide how much the Event model must change to accommodate non-demo traces
+  (this gates the Stage-1 seam and is coupled to the Event-shape question).
