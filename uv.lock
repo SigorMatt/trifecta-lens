@@ -1265,6 +1265,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+capture = [
+    { name = "mcp" },
+]
 demo = [
     { name = "anthropic" },
     { name = "mcp" },
@@ -1283,6 +1286,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'demo'", specifier = ">=0.40" },
+    { name = "mcp", marker = "extra == 'capture'", specifier = ">=1.2" },
     { name = "mcp", marker = "extra == 'demo'", specifier = ">=1.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11" },
     { name = "openai", marker = "extra == 'demo'", specifier = ">=1.0" },
@@ -1294,7 +1298,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev", "demo"]
+provides-extras = ["dev", "capture", "demo"]
 
 [[package]]
 name = "types-pyyaml"

@@ -18,3 +18,8 @@ jobs:
       # make check wraps the exact toolchain commands (ruff, mypy, pytest)
       # plus the phase done-whens — the acceptance harness, task 0.7.
       - run: make check
+      # Task 3.6: the SHIPPED wheel installs into a clean venv and finds what it
+      # should. `make check` runs under `uv run`, with the source tree on the path,
+      # so it can never catch a packaging break (a missing catalog data file, a
+      # broken console script). This can, and it runs on every push for that reason.
+      - run: make install-check

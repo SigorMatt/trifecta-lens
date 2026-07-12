@@ -10,6 +10,10 @@ dist/
 .venv/
 venv/
 
+# `make install-check`: throwaway venv + wheel output, built to prove the SHIPPED
+# package runs from a clean environment (task 3.6). Regenerated, never source.
+.install-check/
+
 # uv: uv.lock IS committed (reproducibility invariant) -- do not ignore it.
 
 # Tooling caches

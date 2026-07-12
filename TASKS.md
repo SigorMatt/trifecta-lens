@@ -552,9 +552,37 @@ while only our own hand-shaped JSONL loads.
   future entry's `note`, and a `note` **is** report text. A doc that fails on a
   stranger's first copy-paste is worse than no doc; now it cannot rot without CI
   going red.
-- [ ] **3.6 `pipx` / `uvx` install path.** Package so a stranger runs it on their
+- [x] **3.6 `pipx` / `uvx` install path.** Package so a stranger runs it on their
   own agent in ~60s (the exit). *Done when the console-script installs and runs
-  from a clean environment.*
+  from a clean environment.* — **The blocker was not packaging, it was the missing
+  input.** `demo/capture_inventory.py` is hard-wired to *our* three reference
+  servers: right for the fixture's provenance, useless to a stranger, so "point it
+  at your own agent" was still half aspirational. Added **`trifecta-capture`** — a
+  second console script in its own top-level package (`trifecta_capture/`, shipped
+  under the `capture` extra), which reads the user's **own** MCP host config
+  (`.mcp.json` / `claude_desktop_config.json` — launch config, the only thing that
+  file holds, D2/F1), launches each server over stdio, records `tools/list`
+  verbatim and writes the inventory. It lives outside `trifecta_lens/` **by design**:
+  it must speak a transport, which core may never do, and the gates scan core — so
+  invariant 1 stays structural, exactly as `demo/` established. The analyzer keeps
+  its one runtime dependency; the SDK rides only on the extra, imported lazily, and
+  the script installs either way and prints how to get it. **Provenance is not
+  fabricated:** the operator's `--note` is carried in their voice, and with no note
+  the artifact *says a note is missing* rather than describing a context the machine
+  cannot know. With no `--context` declared, the whole config is one context — honest,
+  and the collapse case, which the CLI warns about and the finding discloses (D1).
+  **Done-when, executable:** `make install-check` builds the wheel, installs it into
+  a **clean venv with no dev deps**, and runs it from **outside the repo** — `uv run`
+  has the source tree on the path and can never catch a packaging break. It does not
+  stop at `--version`: the catalog is package **data**, so a wheel that imports and
+  versions perfectly can still ship blind. The check demands a real finding *with its
+  catalog citation* out of the installed package — verified by deleting the catalog
+  from the installed venv and watching the run fail. Wired into CI. `tests/test_capture.py`
+  pins the pure half (config → contexts → inventory) and round-trips the artifact
+  **through the analyzer's own loader**, so the two packages cannot drift apart on the
+  file format. That round-trip also caught a real one: a "read-only" triage context
+  holding the GitHub server is **not** sink-free — `create_comment` is a `sink:exfil`
+  (the `INCIDENTS.md` GitHub-MCP shape), and the tier said so.
 - [x] **3.7 Benign-fixture suite — low-false-positive evidence.** Extend the
   benign corpus so "low FP noise" is a **measured** claim (extends 2.1's threshold
   curve and the load-bearing-silence triage fixtures), not an assertion. — Added

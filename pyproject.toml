@@ -17,6 +17,11 @@ dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 trifecta-lens = "trifecta_lens.cli:main"
+# The inventory capture (task 3.6). It lives OUTSIDE the analyzer core, in its own
+# package, because it must launch MCP servers and speak a transport — which core
+# may never do (CLAUDE.md invariant 1). It needs the `capture` extra; without it
+# the script still installs and prints how to get it, rather than an ImportError.
+trifecta-capture = "trifecta_capture.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -25,6 +30,9 @@ dev = [
     "pytest>=8",
     "types-PyYAML",
 ]
+# For `trifecta-capture` only. The ANALYZER still has exactly one runtime
+# dependency: reading a file needs no SDK.
+capture = ["mcp>=1.2"]
 # demo/ only (the human-run captures). Isolated from the analyzer core, which
 # has zero runtime dependencies: `make check` uses `dev` and never installs this.
 # Every demo module imports these lazily (inside functions), exactly as
@@ -46,9 +54,10 @@ demo = [
 ]
 
 [tool.hatch.build.targets.wheel]
-# Ship only the analyzer core. demo/ and tests/ are development/human-run and
-# are not part of the distributed package.
-packages = ["trifecta_lens"]
+# Ship the analyzer plus the capture entrypoint — the two halves a stranger needs
+# to run this on their own agent without cloning the repo. demo/ and tests/ are
+# development/human-run and are not distributed.
+packages = ["trifecta_lens", "trifecta_capture"]
 
 [tool.ruff]
 line-length = 88
@@ -60,6 +69,13 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+# The MCP SDK ships only in the `capture` extra, and `make check` installs only
+# `dev` — so type-checking the capture CLI must not require the SDK to be present.
+# It is imported lazily there for exactly the same reason.
+[[tool.mypy.overrides]]
+module = ["mcp.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

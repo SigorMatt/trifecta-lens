@@ -2,14 +2,43 @@
 # before it counts as done (ENVIRONMENT.md): it wraps the exact toolchain
 # commands plus the Phase 0 done-whens as runnable checks.
 
-.PHONY: check golden demo demo-mcp demo-live demo-direct
+.PHONY: check install-check golden demo demo-mcp demo-live demo-direct
 
 check:
 	uv run ruff check .
-	uv run mypy trifecta_lens
+	uv run mypy trifecta_lens trifecta_capture
 	uv run pytest
 	uv run trifecta-lens --version
 	uv run python -c "from trifecta_lens.loader import load_trace; n = len(load_trace('fixtures/worked_example.jsonl')); assert n == 4, f'expected 4 events, got {n}'"
+
+# Task 3.6's done-when, executable: the console script INSTALLS AND RUNS from a
+# clean environment. Not `uv run` — that has the source tree on the path, so it
+# cannot tell you whether what we SHIP works. This builds the wheel, installs it
+# into a throwaway venv with no dev deps, and runs it from a directory that is not
+# the repo.
+#
+# It does not stop at `--version`. The catalog is package DATA, not code: a wheel
+# that builds, imports and reports its version perfectly can still be missing
+# `catalogs/exfil_v1.yaml` — and the labeling function is the only reason any of
+# this finds anything. So the check demands a real finding, with its catalog
+# citation, out of the installed package. Verified by deleting the catalog from
+# the installed venv and watching the run fail.
+install-check:
+	rm -rf dist .install-check
+	uv build --wheel
+	uv venv --quiet .install-check/venv
+	VIRTUAL_ENV=.install-check/venv uv pip install --quiet dist/*.whl
+	.install-check/venv/bin/trifecta-lens --version
+	.install-check/venv/bin/trifecta-capture --help > /dev/null
+	cd .install-check && ./venv/bin/trifecta-lens \
+		--trace ../fixtures/demo_mcp_trace.otlp.json \
+		--inventory ../fixtures/inventory.json \
+		--findings findings.ndjson > report.txt
+	grep -q "\[REALIZED\]" .install-check/report.txt
+	grep -q "\[REACHABLE, NOT OBSERVED\]" .install-check/report.txt || grep -q "\[REACHABLE\]" .install-check/report.txt
+	grep -q "catalog: mcp.notify.send" .install-check/report.txt
+	grep -q '"schema_version"' .install-check/findings.ndjson
+	@echo "install-check: the shipped wheel installs clean and finds what it should."
 
 # Regenerate the findings regression anchor (fixtures/golden/). Run this ONLY
 # when a change is MEANT to alter the findings output, and commit the result in

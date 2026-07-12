@@ -317,6 +317,17 @@ defined in `FIXTURES.md`.
   > violates invariant 1. Hence a **captured** inventory, produced by a capture
   > step outside core — the same architectural move as `demo/`.
   >
+  > That capture step ships as **`trifecta-capture`** (the `trifecta_capture`
+  > package, installed with the `capture` extra — outside the analyzer package, so
+  > the no-network gate on core still holds structurally). It reads the user's own
+  > host config, launches each configured server over stdio, records `tools/list`
+  > verbatim, and writes this artifact. It **lists** capability; it calls no tool.
+  > Contexts are declared by the operator (`--context id=serverA,serverB`); with
+  > none declared the whole config is one context, which is honest and is also the
+  > collapse case reachable discloses (`DECISIONS.md` D1). Provenance is never
+  > written in the operator's voice: their `--note` is theirs, and when there is no
+  > note the artifact **says so** rather than describing a context it cannot know.
+  >
   > The inventory records the **effective** tool set, not the *cause* of it. A
   > context narrowed by a subagent allowlist, a deny list, or a smaller server
   > loadout all look identical: a smaller tool set. We do not model why. This is
