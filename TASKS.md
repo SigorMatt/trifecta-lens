@@ -97,13 +97,23 @@ Build the whole pipeline (ingest → label → detect → report → render) for
   does **not** match at `s2` (placeholder), and does not match in either triage
   fixture. Tests pin that transformed taint (base64 / split / paraphrase) does
   **not** match — the v1 limit, stated, not papered over.
-- [ ] **1.6 Realized detector.** Emit a finding when a tainted value reaches the
-  sink, with the ordered path and masked value. Findings serialize as NDJSON —
-  one finding per line, `sort_keys=True`, written as found (`DESIGN.md` §6).
-  Output text is *"tainted data observed reaching <sink>"* — no causal/attack
-  language (`CLAUDE.md` 4).
+- [x] **1.6 Realized detector + the two-leg family (approved spec change).** Emit
+  a finding when a tainted value reaches the sink, with the ordered path and
+  masked value. Findings serialize as NDJSON — one finding per line,
+  `sort_keys=True`, written as found (`DESIGN.md` §6). Output text is *"tainted
+  data observed reaching <sink>"* — no causal/attack language (`CLAUDE.md` 4).
   *Done when the positive fixture yields one realized finding with the path and
   the benign yields none.*
+  **Spec-first:** `SPEC.md` §3/§3.1/§5 and `DESIGN.md` §2/§3 now define
+  `sensitive_to_exfil_sink` — a **relaxation of the same exfil automaton**
+  (drop the `untrusted_source` conjunct, keep the guard), reported as the lesser
+  family that always names the source leg as not-observed. The trifecta stays
+  defined and *exercised* (`worked_example.jsonl`, which has a real `fetch`
+  source leg, yields `exfil_trifecta`). Code: `trifecta_lens/engine.py` (the fold)
+  + `trifecta_lens/findings.py` (the NDJSON append-stream).
+  **Acceptance verified:** anchor → exactly one `sensitive_to_exfil_sink`
+  finding, sink `s4`, path `s3 → s4`, value masked; nothing on `s2`; no trifecta
+  finding on the anchor; zero on both triage fixtures.
 - [ ] **1.7 Tiered human report** (realized only for the slice) with a tier
   badge. *Done when it prints the masked verdict.*
 - [ ] **1.8 SVG renderer.** The red-edge path artifact (the screenshot).

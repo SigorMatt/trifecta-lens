@@ -35,15 +35,50 @@ Event:
 `inputs`/`outputs` require **payload-level** spans. If absent, realized
 detection is `UNAVAILABLE` for that event (see §7 degradation).
 
-## 3. Two finding families (one engine)
+## 3. Finding families (one engine)
 
-| Family | Legs required | Sink subtype | Harm |
+| Family id | Legs required | Sink subtype | Harm |
 |---|---|---|---|
-| Exfil trifecta | untrusted_source + sensitive_data + sink | `sink:exfil` | data leaves the boundary |
-| Action hijack | untrusted_source + sink | `sink:impact` | untrusted content drives a consequential action |
+| `exfil_trifecta` | untrusted_source + sensitive_data + sink | `sink:exfil` | sensitive data leaves the boundary, and untrusted content was also in the path |
+| `sensitive_to_exfil_sink` | sensitive_data + sink | `sink:exfil` | sensitive data leaves the boundary; **no untrusted-source leg observed** |
+| `action_hijack` | untrusted_source + sink | `sink:impact` | untrusted content is in the path of a consequential action |
 
 Same path engine; the family is determined by which sink subtype terminates the
-path and whether the sensitive leg is required.
+path and which legs are present.
+
+### 3.1 The two-leg family (`sensitive_to_exfil_sink`)
+
+`sensitive_to_exfil_sink` is a **relaxation of the same exfil automaton**, not a
+separate detector: it drops the `untrusted_source` leg from the trifecta's
+acceptance condition and keeps everything else, including the verbatim guard
+(§6). Formally,
+
+> a trifecta finding is exactly a two-leg finding **plus** an observed
+> `untrusted_source` leg.
+
+It exists because sensitive data reaching an outbound sink is a real, reportable
+exposure even when no untrusted content was observed in the path — and because
+inventing a source leg to make the trifecta accept would be a lie about the
+threat model. (The v1 realized anchor is precisely this case: a
+direct-instruction run in which the principal's own prompt, not ingested
+untrusted content, precedes the vault→webhook flow.)
+
+**It is the lesser finding, and must always read as one.** Binding output rules:
+
+- Its family id is `sensitive_to_exfil_sink`, **never** `exfil_trifecta`.
+- Every finding names the source leg explicitly, as observed or not-observed:
+  `legs_observed` and `legs_not_observed` are both required fields, and a
+  two-leg finding carries a note stating the `untrusted_source` leg was not
+  observed and that this is **not** a trifecta finding.
+- It is **never** headlined as the trifecta result, and never borrows the
+  trifecta's severity or language (`CLAUDE.md` invariant 3).
+- The summary text is the same fixed flow-not-causation line (§5).
+- Realized ⊆ reachable ⊆ posture continues to hold **within each family**.
+
+The trifecta family remains defined and available; it simply does not accept on a
+trace with no untrusted-source leg. **That silence is correct, and must not be
+"fixed" by relabeling** — neither a sensitive read nor the principal's own prompt
+is an untrusted source.
 
 ## 4. Role catalog
 
@@ -108,8 +143,18 @@ tool (through a `sensitive` tool for the exfil family). It means "a data path
    causal/temporal ancestry includes the required legs (leg order immaterial).
 4. Report the concrete path (the ordered events) and mask sensitive values.
 
+**One finding per accepting sink event, at the strongest family that accepts.**
+A sink event that satisfies the trifecta's legs also satisfies the two-leg
+family's (the latter's legs are a subset), so reporting both would double-count
+one flow. The engine emits the trifecta finding in that case, and the two-leg
+finding when the `untrusted_source` leg is absent. Either way the finding states
+which legs were observed and which were not (§3.1), so the weaker result can
+never be mistaken for the stronger one.
+
 Output language is fixed: *"tainted data observed reaching <sink>"* — never a
-causal/attack claim (CLAUDE.md invariant 4).
+causal/attack claim (CLAUDE.md invariant 4). This is identical across families:
+the family is carried by the `family` field and the leg lists, never by
+escalating the verb.
 
 ## 6. Taint matching (v1)
 
