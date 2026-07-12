@@ -202,12 +202,17 @@ weakening the tier.
   `path_basis: temporal` (correctly — its tool spans are siblings under the root);
   a fixture with a real parent chain reads `causal`; and the SVG edge is labelled.
   **Blocks any public artifact.***
-- [ ] **2.3 Harden the architecture gate to the stage seam** (D6; resolves
+- [x] **2.3 Harden the architecture gate to the stage seam** (D6; resolves
   `OPEN_QUESTIONS.md` §4). The 0.8 gate learns `DESIGN.md` §5: tool-name-keyed data
   is legal in **Stage 1** (loader, inventory front-end, catalog/labeling), illegal
-  in **Stage 2** (engine, findings, report, svg). *Done when the gate fails on a
-  per-tool dict table planted in `engine.py` and passes on the same table in
-  `labeling.py`.*
+  in **Stage 2** (engine, taint, findings, report, svg). *Done when the gate fails
+  on a per-tool dict table planted in `engine.py` and passes on the same table in
+  `labeling.py`.* — Verified by **planting the real violation in `engine.py`** and
+  watching the gate fire, not only by unit-testing synthetic AST. The gate flags
+  the **lookup**, not the table: a tool-keyed table is the labeling function's
+  whole job, and a table nobody consults is harmless — what must never happen is
+  the *engine* looking a tool up in one. A coverage test also fails if a new core
+  module is added without being assigned to a stage.
 
 ### Track B — the real-MCP capture *(the root dependency)*
 

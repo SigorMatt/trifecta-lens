@@ -29,6 +29,37 @@ _BANNED = [re.compile(p, re.IGNORECASE) for p in BANNED_TOKEN_PATTERNS]
 
 _TOOL_BRANCH_OPS = (ast.Eq, ast.NotEq, ast.In, ast.NotIn)
 
+# --- Task 2.3 (DECISIONS.md D6): the gate learns the DESIGN §5 stage seam. ---
+#
+# Gate B caught `if tool == "webhook"` but was blind to a per-tool DICT TABLE.
+# A contributor could put {"webhook": ..., "vault": ...} straight into the engine
+# and the gate would stay green — while that is precisely the "per-path code" that
+# CLAUDE.md invariant 2 forbids.
+#
+# The boundary the gate should always have been policing is the two-stage seam:
+#
+#   STAGE 1 (construction / front-end) — MAY key on tool names. This is where the
+#   labeling function lives, and naming tools IS its job. Coverage is data here.
+#
+#   STAGE 2 (the engine) — MUST NOT. It sees roles only. It must be impossible to
+#   extend coverage by editing it, which is what makes "catalog, not per-path
+#   code" a structural property rather than a habit.
+STAGE_1_MODULES = frozenset(
+    {
+        "loader.py",  # raw spans -> Events
+        "labeling.py",  # the labeling function (catalog stand-in, tool-keyed BY DESIGN)
+    }
+)
+STAGE_2_MODULES = frozenset(
+    {
+        "engine.py",  # the automaton
+        "taint.py",  # value extraction + matching: keyed on ROLES and payloads
+        "findings.py",  # the findings contract
+        "report.py",  # rendering
+        "svg.py",  # rendering
+    }
+)
+
 
 def banned_tokens_in(text: str) -> list[str]:
     """Return every banned causal/attack token found in ``text``."""
@@ -71,6 +102,39 @@ def per_tool_branches_in(tree: ast.AST) -> list[int]:
         sides = [node.left, *node.comparators]
         if any(_is_string_const(s) for s in sides) and any(
             _mentions_tool(s) for s in sides
+        ):
+            hits.append(node.lineno)
+    return hits
+
+
+def tool_lookups_in(tree: ast.AST) -> list[int]:
+    """Line numbers where a tool expression is used as a LOOKUP KEY.
+
+    This is the hole the old gate left open. It caught ``if tool == "webhook"``,
+    but a per-tool **table** — ``_SINK_TOOLS = {"webhook": ...}`` consulted as
+    ``_SINK_TOOLS[event.tool]`` — sailed straight through, while being exactly the
+    per-path code invariant 2 forbids.
+
+    Flagging the *table* is the wrong move: a tool-keyed table is the labeling
+    function's entire job, and a table nobody looks up is harmless. What must never
+    happen is the **engine looking a tool up in one**. So we flag the lookup:
+
+        TOOL_TABLE[event.tool]        -> subscript keyed by a tool expression
+        TOOL_TABLE.get(event.tool)    -> .get()/.pop() keyed by a tool expression
+
+    Together with the comparison gate, this closes the loop: in Stage 2 you can
+    neither branch on a tool name nor look one up. The engine cannot learn what a
+    "webhook" is, which is what makes "catalog, not per-path code" structural
+    rather than a habit.
+    """
+    hits: list[int] = []
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Subscript) and _mentions_tool(node.slice)) or (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"get", "pop", "setdefault"}
+            and node.args
+            and _mentions_tool(node.args[0])
         ):
             hits.append(node.lineno)
     return hits
@@ -155,6 +219,74 @@ def test_honesty_gate_detects_banned_tokens() -> None:
     assert banned_tokens_in("this run was exploited") == ["exploit"]
     # "because" contains no banned token; word boundaries matter
     assert banned_tokens_in("because of the cause") == []
+
+
+def test_stage_2_never_looks_up_a_tool() -> None:
+    """The engine sees ROLES, never tool names (DECISIONS.md D6, DESIGN.md §5)."""
+    offenders: dict[str, list[int]] = {}
+    for path, tree in _core_trees().items():
+        module = Path(path).name
+        if module not in STAGE_2_MODULES:
+            continue
+        if hits := tool_lookups_in(tree):
+            offenders[path] = hits
+    assert not offenders, (
+        f"Stage-2 module looks a tool up in a table (lines): {offenders}. "
+        "The engine must not learn tool names — that is the labeling function's "
+        "job (Stage 1). CLAUDE.md invariant 2; DESIGN.md §5."
+    )
+
+
+def test_the_stage_seam_is_fully_covered() -> None:
+    """Every core module is classified. A new one cannot slip in unpoliced."""
+    modules = {
+        Path(p).name
+        for p in _core_trees()
+        if Path(p).name not in {"__init__.py"}
+    }
+    classified = STAGE_1_MODULES | STAGE_2_MODULES | {
+        "model.py",  # pure data
+        "roles.py",  # the alphabet
+        "extraction.py",  # declared parameters
+        "cli.py",  # wiring
+    }
+    assert modules <= classified, (
+        f"unclassified core module(s): {modules - classified}. "
+        "Assign each to Stage 1 or Stage 2 so the gate polices it."
+    )
+
+
+def test_gate_catches_a_tool_table_planted_in_the_engine() -> None:
+    """The gate must fail on the exact smuggling it exists to stop."""
+    smuggled = ast.parse(
+        'SINK_TOOLS = {"webhook": "exfil", "slack": "exfil"}\n'
+        "def accept(event):\n"
+        "    return SINK_TOOLS[event.tool]\n"
+    )
+    assert tool_lookups_in(smuggled), "the gate must catch a per-tool table lookup"
+
+    smuggled_get = ast.parse(
+        "def accept(event):\n"
+        "    return SINK_TOOLS.get(event.tool, None)\n"
+    )
+    assert tool_lookups_in(smuggled_get)
+
+
+def test_gate_permits_the_legitimate_table_in_stage_1() -> None:
+    """labeling.py IS a tool-keyed table, by design. The gate must not flag it.
+
+    This is the asymmetry the old gate could not express: the same table is
+    correct in Stage 1 and forbidden in Stage 2.
+    """
+    trees = _core_trees()
+    labeling = next(t for p, t in trees.items() if Path(p).name == "labeling.py")
+
+    # It really does look tools up -- that is its job.
+    assert tool_lookups_in(labeling), "labeling.py should be tool-keyed"
+
+    # And it is Stage 1, so the gate lets it be.
+    assert "labeling.py" in STAGE_1_MODULES
+    assert "labeling.py" not in STAGE_2_MODULES
 
 
 def test_architecture_gate_detects_per_tool_branches() -> None:
