@@ -518,12 +518,21 @@ while only our own hand-shaped JSONL loads.
   feature). Compatibility policy documented: additive ⇒ minor bump + ignore
   unknown fields; removal/rename/retype ⇒ major bump. Goldens regenerated (the
   one added `schema_version` field, visible in the diff).
-- [ ] **3.4 Primary-source-verify the documented-incident citations.** No
-  citations exist in the repo yet, so this **establishes** the verified set (not
-  audits an existing one): each incident checked against its primary source,
-  landed with links only where it holds, with an explicit note of what it does
-  and does not demonstrate. Consumed by 3.1. *Done when the citations file exists
-  and every entry links a primary source.*
+- [x] **3.4 Primary-source-verify the documented-incident citations.** No
+  citations existed in the repo, so this **establishes** the verified set. —
+  `INCIDENTS.md` holds two A-tier, primary-source-verified incidents plus the
+  concept source, deliberately small (honesty over volume): **EchoLeak**
+  (CVE-2025-32711; Aim Labs research + the NVD CVE record) and the **GitHub MCP**
+  private-repo exfiltration (Invariant Labs). Each was checked against its
+  **primary** source (not a news summary), carries a `Verified: 2026-07-13` date,
+  and states in its own words **what trifecta-lens would and would not see** — the
+  scope caveat travels *with* the motivation. The GitHub MCP case is the closest
+  public analogue to our target (a real MCP agent; PR-to-public-repo is a
+  `sink:exfil` write in the default catalog), while EchoLeak's exfil rode a
+  **rendered** channel that v1's verbatim realized tier does not detect — stated,
+  not buried. `tests/test_incidents.py` makes "every incident cites a primary
+  source + a verification date" executable, so no motivating incident can be added
+  without the verification. Consumed by 3.1. `make check` green (231 tests).
 - [ ] **3.5 `CONTRIBUTING.md` — the catalog-entry flywheel.** Frame "add a catalog
   entry" as the contribution path (2.13 proved a stranger's server is covered by
   editing data, not code). *(Note: a `CONTRIBUTING.md` stub already exists.)*
