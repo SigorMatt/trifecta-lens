@@ -77,6 +77,47 @@ trace instead of hand-authoring it.
 - **Shareable:** "run it on your own MCP agent in one command" demo/gif.
 - Tasks: `TASKS.md` 2.1–2.13. Decisions: `DECISIONS.md` D1–D9.
 
+### ✅ Phase 2 is complete (2026-07-13). Exit met.
+
+`make demo-mcp` runs the two **real** Checkpoint D artifacts — the captured tool
+inventory and the captured OTLP trace — through one command and emits all three
+tiers. `main` is green at 210 tests.
+
+**What the real capture actually says**, and it is the product in one line:
+
+| Tier | Family | Sink |
+|---|---|---|
+| realized | `sensitive_to_exfil_sink` (two-leg) | `notify__send` |
+| reachable | `exfil_trifecta` | `notify__send` |
+| posture | `exfil_trifecta` | `notify__send` |
+
+The captured run wired the **lesser** family — a file read reaching an outbound
+sink, with no untrusted content in the path. But the same `assistant` context is
+*also* exposed to `fetch__fetch`, so the **full trifecta was reachable and no run
+was observed wiring it**. "Could, but didn't" is exactly the gap the three tiers
+exist to show, and it appears on the real artifacts without being staged.
+
+**Non-vacuity holds on the real inventory (D1/D7's binding constraint).** The 🛑
+halt condition in `TASKS.md` 2.11 did **not** fire: the captured `triage` context
+carries the source and sensitive legs but no outbound sink, so it cannot wire what
+posture finds — a distinction posture is structurally unable to make. D7's
+constructed fallback was never needed. The collapse disclosure ships regardless.
+
+**Honest gaps carried into Phase 3** (none of them block the exit; all of them are
+things we must not imply we have):
+- **RAG / LLM-message ingestion is not built.** No captured trace carries those
+  keys yet, and building an ingest path no real trace exercises is speculative
+  breadth. Same rule that governed the OTLP adapter: a real format in hand first.
+- **The realized anchor is direct-instruction, not injection.** No captured run
+  exists where an untrusted-source leg and a verbatim secret at a sink co-occur —
+  which is why the realized tier reports the two-leg family and says so. The
+  trifecta's *realized* acceptance path is exercised only by a hand-authored
+  fixture (`worked_example.jsonl`), and that is stated, not hidden.
+- **Action-hijack (`sink:impact`) is catalogued but no family accepts on it** —
+  Phase 4, by design.
+- **README + the limitations section are Phase 3**, and the findings NDJSON schema
+  is not frozen until then.
+
 ## Phase 3 — Harden for public launch  *(provisional)*
 README with the documented-incident citations and the honesty section;
 `CONTRIBUTING.md` framing catalog entries as the contribution path (the
