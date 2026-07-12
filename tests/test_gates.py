@@ -109,6 +109,40 @@ def per_tool_branches_in(tree: ast.AST) -> list[int]:
     return hits
 
 
+def _annotation_nodes(tree: ast.AST) -> set[int]:
+    """Every node inside a type annotation.
+
+    `tools: tuple[ToolCitation, ...]` is a Subscript whose slice names a type
+    containing "tool" — which is a DECLARATION, not a table lookup. Policing
+    annotations would push the gate into forcing type names to dodge a substring,
+    which is the gate distorting the code instead of guarding it. So exclude them:
+    what invariant 2 forbids is the engine *consulting* a tool-keyed table at
+    runtime, and an annotation consults nothing.
+    """
+    nodes: set[int] = set()
+    annotations: list[ast.expr] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.AnnAssign):
+            annotations.append(node.annotation)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            if node.returns is not None:
+                annotations.append(node.returns)
+            args = node.args
+            for arg in (
+                *args.posonlyargs,
+                *args.args,
+                *args.kwonlyargs,
+                args.vararg,
+                args.kwarg,
+            ):
+                if arg is not None and arg.annotation is not None:
+                    annotations.append(arg.annotation)
+    for annotation in annotations:
+        for sub in ast.walk(annotation):
+            nodes.add(id(sub))
+    return nodes
+
+
 def tool_lookups_in(tree: ast.AST) -> list[int]:
     """Line numbers where a tool expression is used as a LOOKUP KEY.
 
@@ -129,8 +163,11 @@ def tool_lookups_in(tree: ast.AST) -> list[int]:
     "webhook" is, which is what makes "catalog, not per-path code" structural
     rather than a habit.
     """
+    annotations = _annotation_nodes(tree)
     hits: list[int] = []
     for node in ast.walk(tree):
+        if id(node) in annotations:
+            continue
         if (isinstance(node, ast.Subscript) and _mentions_tool(node.slice)) or (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
@@ -308,6 +345,31 @@ def test_gate_catches_a_tool_table_planted_in_the_engine() -> None:
         "    return SINK_TOOLS.get(event.tool, None)\n"
     )
     assert tool_lookups_in(smuggled_get)
+
+
+def test_the_annotation_carve_out_is_not_a_loophole() -> None:
+    """Annotations are exempt. Everything else that keys on a tool still is not.
+
+    The exemption exists because `tools: tuple[ToolCitation, ...]` is a
+    declaration, not a lookup. It must not become a way to smuggle a real lookup
+    past the gate, so: a typed variable holding a tool table is fine, and CONSULTING
+    it is still caught.
+    """
+    exempt = ast.parse(
+        "from typing import Any\n"
+        "def f(tools: dict[str, Any]) -> tuple[ToolCitation, ...]:\n"
+        "    citations: tuple[ToolCitation, ...] = ()\n"
+        "    return citations\n"
+    )
+    assert not tool_lookups_in(exempt)
+
+    # ...but the moment it is actually consulted, the gate fires again.
+    caught = ast.parse(
+        "def f(event) -> None:\n"
+        "    table: dict[str, str] = SINK_TOOLS\n"
+        "    return table[event.tool]\n"
+    )
+    assert tool_lookups_in(caught)
 
 
 def test_gate_permits_the_legitimate_table_in_stage_1() -> None:

@@ -32,12 +32,17 @@ from trifecta_lens.findings import (
     BASIS_CAUSAL,
     BASIS_MIXED,
     BASIS_TEMPORAL,
+    TIER_POSTURE,
+    TIER_REACHABLE,
     TIER_REALIZED,
+    CapabilityFinding,
+    CapabilityLeg,
     Finding,
     Leg,
     PathEdge,
+    ToolCitation,
 )
-from trifecta_lens.model import Event, Value
+from trifecta_lens.model import Event, LabeledContext, LabeledStack, Value
 from trifecta_lens.roles import (
     SENSITIVE_DATA,
     SINK_EXFIL,
@@ -328,3 +333,117 @@ def detect_realized(
         for role in event.roles:
             legs_seen[role] = event
         seen[event.id] = event
+
+
+# --- The capability tiers (tasks 2.10, 2.11) ---------------------------------
+#
+# Same machine, weaker input (DESIGN.md §3). Realized runs the automaton over the
+# trace event graph with the taint guard ON. Drop the guard and run it over one
+# agent context's exposed roles -> REACHABLE. Drop the contexts too and run it over
+# the union of the whole stack -> POSTURE.
+#
+# Both are literally `satisfied_families(...)` again, over a leg set that comes
+# from the inventory instead of from a path's ancestry. That is what makes
+# `realized ⊆ reachable ⊆ posture` structural: each tier's leg set is a superset of
+# the tighter tier's, so an accepting family at a tighter tier accepts at a looser
+# one by construction. Nothing here re-derives the acceptance condition.
+
+CAPABILITY_SCOPE: Final[str] = (
+    "This tier reads the captured tool inventory ONLY. It never opened a payload "
+    "and consulted no trace, so it cannot say whether any value moved. A finding "
+    "here is a statement about what the stack CAN do, not about what it did."
+)
+
+NOTE_POSTURE: Final[str] = (
+    "posture states capability, not observation: these roles exist somewhere in "
+    "the captured stack. No run was observed doing this. Posture does NOT claim "
+    "any single agent context can reach all of these tools — that is the reachable "
+    "tier's question, and it is the tighter one. This tier overlaps ordinary "
+    "static scanners and is the weakest of the three."
+)
+
+NOTE_REACHABLE: Final[str] = (
+    "reachable states capability, not observation: every leg is exposed to this "
+    "one agent context, so a single run could wire them together. No run was "
+    "observed doing so. This is the lethal-trifecta condition as a topology — it "
+    "is not evidence that any data moved."
+)
+
+SUMMARY_POSTURE: Final[str] = (
+    "all legs of {family} are present in the captured stack; {sink} could receive "
+    "them"
+)
+SUMMARY_REACHABLE: Final[str] = (
+    "all legs of {family} are exposed to agent context {context!r}; a single run "
+    "could wire them to {sink}"
+)
+
+_TIER_TEXT: Final[dict[str, tuple[str, str]]] = {
+    TIER_POSTURE: (SUMMARY_POSTURE, NOTE_POSTURE),
+    TIER_REACHABLE: (SUMMARY_REACHABLE, NOTE_REACHABLE),
+}
+
+
+def _capability_legs(context: LabeledContext, roles: Iterable[Role]) -> tuple[
+    CapabilityLeg, ...
+]:
+    """Every tool in this context supplying each required leg, in capture order."""
+    return tuple(
+        CapabilityLeg(
+            role=role,
+            tools=tuple(
+                ToolCitation(tool=tool.name, note=tool.role_notes.get(role, ""))
+                for tool in context.tools_with(role)
+            ),
+        )
+        for role in roles
+    )
+
+
+def detect_capability(
+    context: LabeledContext, tier: str
+) -> Iterator[CapabilityFinding]:
+    """Run the automaton over one context's exposed roles, with the guard OFF.
+
+    Posture passes the stack's union context; reachable passes each real context.
+    They are the same call because they are the same question asked of a wider and
+    a narrower bag of tools (SPEC.md §5).
+
+    One finding per (family, sink tool), at the strongest family that accepts —
+    exactly realized's reporting rule, so a flow is never double-counted at any
+    tier.
+    """
+    summary_template, note = _TIER_TEXT[tier]
+    exposed = context.roles()
+    accepted = satisfied_families(exposed)
+    if not accepted:
+        return
+    family = accepted[0]
+
+    legs = _capability_legs(context, family.required)
+    for sink in context.tools_with(family.sink):
+        yield CapabilityFinding(
+            family=family.id,
+            tier=tier,
+            summary=summary_template.format(
+                family=family.id, context=context.id, sink=sink.name
+            ),
+            context=context.id,
+            context_provenance=context.provenance,
+            sink_tool=sink.name,
+            legs=legs,
+            legs_present=tuple(r for r in _EXFIL_LEGS if r in exposed),
+            legs_absent=tuple(r for r in _EXFIL_LEGS if r not in exposed),
+            note=note,
+            scope=CAPABILITY_SCOPE,
+        )
+
+
+def detect_posture(stack: LabeledStack) -> Iterator[CapabilityFinding]:
+    """Posture: do the legs exist ANYWHERE in the captured stack? (SPEC.md §5)
+
+    The union of every context, with no edges and no guard — the weakest tier.
+    **Never headline it**: it overlaps what ordinary static scanners already do,
+    and it says nothing about whether one agent could actually reach them all.
+    """
+    yield from detect_capability(stack.posture_context(), TIER_POSTURE)

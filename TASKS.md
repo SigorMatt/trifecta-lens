@@ -370,9 +370,25 @@ weakening the tier.
   (`test_stage_2_imports_no_front_end`) fails if any Stage-2 module imports a Stage-1
   one — **verified by planting `from trifecta_lens.loader import load_trace` in
   `engine.py` and watching it fire**. Findings byte-identical (`fixtures/golden/`).
-- [ ] **2.10 Posture tier** (D1). Roles present in the **union** of the inventory's
+- [x] **2.10 Posture tier** (D1). Roles present in the **union** of the inventory's
   contexts; no edges, no guard. *Done when the captured inventory yields posture
-  findings, and `realized ⊆ posture` is an executable property test.*
+  findings, and `realized ⊆ posture` is an executable property test.* —
+  `engine.detect_posture` is `detect_capability(stack.posture_context(), TIER_POSTURE)`:
+  the **same** `satisfied_families` predicate, over the union of the stack instead of
+  a path's ancestry. The real Checkpoint D inventory yields one posture finding —
+  `exfil_trifecta` at `notify__send`, all three legs present in the union — and
+  `test_realized_is_contained_in_posture_on_the_real_capture` proves `realized ⊆ posture`
+  over the **real trace + real inventory**, compared at the *acceptance predicate*
+  (not the reported family, which is only ever the strongest — comparing those would
+  compare two projections and prove nothing). **Tier honesty is structural, not
+  editorial:** `CapabilityFinding` is a different type with **no** `path`,
+  `path_basis`, `masked_values` or `legs_observed` field — posture observed nothing,
+  so there is nowhere to put the stronger claim, and a test asserts those keys are
+  absent from the serialized line. Posture's union context announces itself as
+  synthetic (`*posture-union*`) so it can never be misread as a real agent context
+  (i.e. as reachable). Gate fix: type annotations are exempt from the tool-lookup
+  scan — `tools: tuple[ToolCitation, ...]` is a declaration, not a lookup — with a
+  test pinning that the carve-out is not a loophole.
 - [ ] **2.11 Reachable tier + collapse disclosure + non-vacuity** (D1, D7).
   Reachable = all legs co-exposed in **one context**; the same machine with edges on
   and the guard off. **Must detect and disclose the collapse case**

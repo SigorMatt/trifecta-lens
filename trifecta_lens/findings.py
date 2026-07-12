@@ -13,13 +13,18 @@ over the network (`DESIGN.md` §7): that is permanently out, not merely parked.
 import json
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, Final, TextIO
+from typing import Any, Final, Protocol, TextIO
 
 from trifecta_lens.roles import Role
 
-#: The only tier this slice emits. Kept explicit so a lower tier can never
-#: silently inherit realized's language or weight (CLAUDE.md invariant 3).
+#: The three tiers (SPEC.md §5). Kept explicit so a lower tier can never silently
+#: inherit realized's language or weight (CLAUDE.md invariant 3).
 TIER_REALIZED: Final[str] = "realized"
+TIER_REACHABLE: Final[str] = "reachable"
+TIER_POSTURE: Final[str] = "posture"
+
+#: Weakest first. A tier's *strength* is fixed here and nowhere else.
+TIERS: Final[tuple[str, ...]] = (TIER_POSTURE, TIER_REACHABLE, TIER_REALIZED)
 
 #: How an edge in the reported path is justified (SPEC.md §5, DECISIONS.md D5).
 #: CAUSAL: the trace's own parent_id chain links the two spans.
@@ -110,14 +115,100 @@ class Finding:
         return json.dumps(self.to_dict(), sort_keys=True)
 
 
-def write_ndjson(findings: Iterable[Finding], stream: TextIO) -> int:
+# --- The capability tiers (posture, reachable) ------------------------------
+#
+# A capability finding is a DIFFERENT TYPE from a realized one, deliberately.
+#
+# `CLAUDE.md` invariant 3 says a lower tier must never borrow a higher tier's
+# severity, colour or language. The strongest way to guarantee that is to make it
+# unsayable: this dataclass has no `path`, no `masked_values`, no `path_basis` and
+# no `legs_observed` — because posture and reachable observed NOTHING. They read a
+# captured inventory; they never opened a payload. There is no field in which to
+# accidentally write the stronger claim, and no code path by which realized's
+# evidence can leak into a tier that has none.
+#
+# What they carry instead is the honest currency of a capability claim: which
+# context, which tools carry which leg, and why the catalog said so.
+
+
+@dataclass(frozen=True)
+class ToolCitation:
+    """One tool carrying a leg, and the catalog rationale that assigned it."""
+
+    tool: str
+    note: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"note": self.note, "tool": self.tool}
+
+
+@dataclass(frozen=True)
+class CapabilityLeg:
+    """One leg of a capability finding: a role, and every tool that supplies it.
+
+    Plural, unlike a realized :class:`Leg` — a context may expose eight tools that
+    can read a file. Naming them all is the point: the user's next move is to look
+    at that list and decide which ones actually needed to be there.
+    """
+
+    role: Role
+    tools: tuple[ToolCitation, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"role": self.role, "tools": [t.to_dict() for t in self.tools]}
+
+
+@dataclass(frozen=True)
+class CapabilityFinding:
+    """A posture or reachable finding. Serializes to exactly one NDJSON line."""
+
+    family: str
+    tier: str
+    summary: str
+    #: The agent context this is a claim about. For posture, the synthetic union of
+    #: every context — which announces itself as such, in both the id and the note.
+    context: str
+    context_provenance: str
+    sink_tool: str
+    legs: tuple[CapabilityLeg, ...]
+    legs_present: tuple[Role, ...]
+    legs_absent: tuple[Role, ...]
+    note: str
+    scope: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "context": {"id": self.context, "provenance": self.context_provenance},
+            "family": self.family,
+            "legs": [leg.to_dict() for leg in self.legs],
+            "legs_absent": list(self.legs_absent),
+            "legs_present": list(self.legs_present),
+            "note": self.note,
+            "scope": self.scope,
+            "sink": {"tool": self.sink_tool},
+            "summary": self.summary,
+            "tier": self.tier,
+        }
+
+    def to_json_line(self) -> str:
+        """One NDJSON line. ``sort_keys=True`` is the determinism contract."""
+        return json.dumps(self.to_dict(), sort_keys=True)
+
+
+class NdjsonSerializable(Protocol):
+    """What the append-stream needs of a finding, at any tier."""
+
+    def to_json_line(self) -> str: ...
+
+
+def write_ndjson(findings: Iterable[NdjsonSerializable], stream: TextIO) -> int:
     """Write findings as they are found. Returns how many were written.
 
     Consumes the iterator lazily and flushes each line, so a consumer piping the
     stream sees a finding at the moment the engine derives it.
     """
     written = 0
-    iterator: Iterator[Finding] = iter(findings)
+    iterator: Iterator[NdjsonSerializable] = iter(findings)
     for finding in iterator:
         stream.write(finding.to_json_line() + "\n")
         stream.flush()
