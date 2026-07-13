@@ -305,6 +305,8 @@ defined in `FIXTURES.md`.
   trace's tool names are a subset of the inventory's; `DECISIONS.md` D8). The
   inventory front-end is `trifecta_lens/inventory.py` (Stage 1); qualification is
   a front-end concern and the engine never sees the separator (`DESIGN.md` §5).
+  Its shape is a **published input contract** — `schema/inventory.schema.json`,
+  §7.2 — because the inventory is a file we ask the *user* to produce.
 
   > **The MCP "manifest" does not contain tools.** An earlier draft of this spec
   > said the manifest was "MCP server/tool config (the same file the host loads)."
@@ -322,6 +324,11 @@ defined in `FIXTURES.md`.
   > the no-network gate on core still holds structurally). It reads the user's own
   > host config, launches each configured server over stdio, records `tools/list`
   > verbatim, and writes this artifact. It **lists** capability; it calls no tool.
+  > It launches **stdio servers only** — a remote/hosted server has no command to
+  > launch — so it also accepts a `tools/list` response the operator obtained by
+  > any other means (`--from-tools-list`, §7.2). It is a convenience, **not the
+  > contract**: the contract is the schema, and any inventory satisfying it is a
+  > first-class input regardless of what produced it (`DECISIONS.md` D11).
   > Contexts are declared by the operator (`--context id=serverA,serverB`); with
   > none declared the whole config is one context, which is honest and is also the
   > collapse case reachable discloses (`DECISIONS.md` D1). Provenance is never
@@ -379,6 +386,37 @@ code, the schema file, and this section ever disagree.
 - Emission surface is stdout/files **only**. Core never delivers findings over
   the network; detection-to-action wiring is the user's plumbing consuming the
   NDJSON stream (`DESIGN.md` §7).
+
+### 7.2 The published inventory schema (input contract)
+
+The findings NDJSON is frozen because strangers *parse* it. The inventory is
+published for the mirror-image reason: strangers must *produce* it. The
+machine-readable contract is `schema/inventory.schema.json`; this section is its
+prose companion, and `tests/test_inventory_schema.py` fails if the code, the schema
+file, and this section disagree.
+
+- **The analyzer reads `context.id`, and per tool the `server` plus `tool.name`.
+  Nothing else.** The rest of the `tools/list` entry (`description`, `inputSchema`,
+  `annotations`) is recorded **verbatim** for the human who will audit the artifact
+  and is consumed by **no detector** — F2 is precisely the finding that schemas
+  cannot constrain reachability, so there is nothing for detection to read them
+  *for*. A test proves the equivalence: an inventory carrying only
+  `{server, tool: {name}}` yields byte-identical findings to the full captured one.
+- **Required:** a `contexts` array; each context an `id`; each tool entry a `server`
+  and a `tool` object with a `name`. **Optional:** `provenance` and `servers`. The
+  loader enforces exactly this, no more and no less — a contract stricter than the
+  loader turns working inventories away, and a looser one blesses files that then
+  fail inside a stage seam.
+- **No in-band `schema_version` is required.** The findings stream carries one on
+  every line because a consumer parsing a single line has no other way to know which
+  contract it is reading. An input whose reader we ship has no such problem, and
+  requiring a version field would invalidate every inventory already captured. One
+  may be present; it is ignored.
+- **Any means of obtaining a `tools/list` response from a real running server is a
+  capture** (`DECISIONS.md` D11). `trifecta-capture` is the convenient path for stdio
+  servers, not the definition of a legitimate one. What is forbidden — always, and
+  this is the line that never moves — is recording a tool **no server listed**.
+  Provenance must say which of the two happened; see the note discipline in D11.
 
 **Invocation shape**
 ```

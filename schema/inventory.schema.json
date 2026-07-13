@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/trifecta-lens/schema/inventory.schema.json",
+  "title": "trifecta-lens tool inventory (v1)",
+  "description": "The captured tool inventory: the analyzer's second input (SPEC.md §7, DECISIONS.md D2/D11). This is a PUBLIC INPUT CONTRACT. `trifecta-capture` produces this file for stdio MCP servers, but it is not the only way to produce one and it is not the contract — this schema is. An inventory assembled from a `tools/list` response you obtained by ANY means from a real running server (curl, a script, a hosted server's own API, any transport MCP invents next) is a capture, and is exactly as legitimate as one this repo's tooling wrote. What must never happen is inventing a tool that no server listed.\n\nWHAT THE ANALYZER ACTUALLY READS: per context, its `id`, and for each tool the `server` plus `tool.name`. That is all detection consumes. The rest of the `tools/list` entry (`description`, `inputSchema`, ...) is recorded VERBATIM for the human who will audit the artifact, and is read by no detector — see DECISIONS.md F2 for why schemas cannot constrain reachability. So the cost of hand-assembling an inventory for an unsupported transport is small, and it is deliberately small.\n\nNO IN-BAND VERSION IS REQUIRED. Unlike the findings NDJSON — an output that strangers parse a single line of, and which therefore carries `schema_version` on every line — the inventory is an INPUT whose reader we ship. A required version field would invalidate every inventory already captured and buy nothing. An optional `schema_version` is permitted and ignored.",
+  "type": "object",
+  "required": ["contexts"],
+  "properties": {
+    "contexts": {
+      "description": "One entry per agent context. Posture reads the UNION of these; reachable reads each one separately — which is the whole reason the artifact is a list and not a flat tool set (DECISIONS.md D1). A single context is honest and common; it is also the case where reachable collapses onto posture, which the analyzer detects and discloses rather than presenting a tier that carries nothing.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/context" }
+    },
+    "schema_version": {
+      "description": "Optional and ignored. Present only so an inventory that carries one is not rejected.",
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "context": {
+      "title": "one agent context and its effective exposed tool set",
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "description": "Stable identifier for this agent context. Cited in every capability finding.",
+          "type": "string",
+          "minLength": 1
+        },
+        "provenance": {
+          "description": "A HUMAN-WRITTEN note: what this context is, and how the tool list was obtained. Optional to the loader, but this is the field that makes the artifact auditable, and it is carried verbatim into the report. Never write it in a voice that claims more than you did — if you pasted a `tools/list` response you fetched by hand, say that; do not say a tool launched and listed the server. This is `CLAUDE.md`'s never-fabricate-a-captured-artifact rule applied to the note itself.",
+          "type": "string"
+        },
+        "servers": {
+          "description": "The server ids this context is exposed to. Informational: the tool entries below carry their own `server`, and that is what detection joins on.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tools": {
+          "description": "The EFFECTIVE exposed tool set — the tools this context can actually invoke. It records the effective set, not the CAUSE of it: a subagent allowlist, a deny list, and a smaller server loadout all look identical here, and we do not model why (DECISIONS.md D2 — flow-not-causation applied to topology).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/tool_entry" }
+        }
+      }
+    },
+    "tool_entry": {
+      "title": "one exposed tool",
+      "description": "Tool identity is SERVER-QUALIFIED — `<server>__<tool>` — because two servers may each expose a `read`. That qualified name is also what the trace's `tool.name` carries, which is what lets a trace and an inventory join on shared identity (the composability join, DECISIONS.md D8). The `server` id therefore may not itself contain `__`, or the qualified name would be ambiguous.",
+      "type": "object",
+      "required": ["server", "tool"],
+      "properties": {
+        "server": {
+          "description": "The server that exposed this tool. Must not contain the `__` namespace separator.",
+          "type": "string",
+          "minLength": 1
+        },
+        "tool": {
+          "description": "The `tools/list` entry, VERBATIM. Additional properties are expected and preserved — only `name` is read by the analyzer.",
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "description": "The bare tool name as the server reported it. The ONLY field detection consumes.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

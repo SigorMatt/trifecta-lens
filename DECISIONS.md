@@ -282,6 +282,67 @@ honest gaps, or mentions `worked_example` in a paragraph that does not call it
 hand-authored. The honesty gate now scans the front page, because far more people
 read the front page than run the tool.
 
+## D11 — The inventory is a published input contract; the capture tool is a convenience
+
+*Taken 2026-07-13, after a read of the launch docs against the code.*
+
+**The finding that forced it.** `trifecta-capture` launches servers over stdio and
+therefore **cannot capture a remote or hosted MCP server** — one has no command to
+launch, and the tool says so and exits. That limitation is honest, correct, and
+appeared **nowhere in the README**, whose 60-second quickstart opens with
+`trifecta-capture --config .mcp.json`. A hosted-MCP user met a hard error on first
+contact. Worse, nothing told them the error was *survivable*: the README presents the
+capture tool as the only route to an inventory, so the reasonable inference is "this
+tool does not work for my stack."
+
+That inference is false, and the reason is a fact the docs never stated: **the
+analyzer reads only `context.id`, `server`, and `tool.name`.** Descriptions and
+schemas are recorded verbatim for the auditor and read by no detector (they *can't*
+be — F2 is the finding that schemas cannot constrain reachability). An inventory is
+cheap to assemble by hand, and deliberately so.
+
+**Decision, in three parts.**
+
+1. **`schema/inventory.schema.json` is published as a public input contract**, with
+   the same discipline the findings NDJSON gets: a machine-readable schema, a prose
+   companion (`SPEC.md` §7.2), and a test that fails the build when the code, the
+   schema, and the prose disagree. The *output* was frozen while the *input* — the
+   one file we ask the world to produce — was implicit. That asymmetry was backwards.
+
+2. **An inventory is a capture if its tool list came from a real running server, by
+   any means.** Curl, a five-line script, a hosted server's own API, a transport MCP
+   has not invented yet: all capture. The distinction this project enforces is
+   **captured vs fabricated** — it was never automated vs manual, and reading it that
+   way turns an honest operator away for no reason. `trifecta-capture` is the
+   *convenient* path for stdio stacks; it is not the definition of a legitimate one.
+   The line that never moves is unchanged and now stated where it belongs: **never
+   record a tool that no server listed.**
+
+3. **The provenance note must describe what actually happened, per server.**
+   `provenance_for()` writes *"launched over stdio and their tools/list responses
+   recorded verbatim."* It must **never** say that about a response the operator
+   handed us from a file. Out-of-band servers get their own method sentence, naming
+   the source and stating plainly that trifecta-capture did not launch the server and
+   cannot attest to how the response was obtained. This is
+   never-fabricate-a-captured-artifact applied to the *note*, which is the one place a
+   capture tool can lie without touching a single tool name.
+
+**Shipped with it:** `trifecta-capture --from-tools-list <server>=<file>`, so the
+escape hatch is a supported path rather than a documented chore — it composes with
+`--context`, makes `--config` optional, and supports **mixed** stacks (some local
+stdio, some hosted), which is the realistic shape.
+
+**Rejected:** teaching `trifecta_capture` every MCP transport (HTTP, SSE, whatever is
+next) — a growing surface that chases a moving spec, to reach the same `tools/list`
+response the operator can already obtain. One transport-agnostic entry point covers
+all of them and cannot rot.
+
+**The gate that would have caught this, and now does.** `tests/test_readme.py` scanned
+for causal language, overclaiming, and unrunnable install commands — and passed a
+README whose quickstart fails for an entire class of stacks. The missing class is
+**unstated preconditions**, and a tool whose moat is *saying what it cannot do* has to
+gate for silence, not only for false statements.
+
 ---
 
 ## Sequencing
