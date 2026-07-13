@@ -740,6 +740,37 @@ which must differ, and does.
   `schema_version` stays `1.0` (the dangerous case has *zero* findings, so no per-finding
   field could carry it); goldens byte-identical. 275 tests green.
 
+- [x] **3.13 `USAGE.md`, the non-MCP path made first-class — and the bug that found (D14).**
+  The README said "for MCP-based agent systems" and documented only the MCP path, while the
+  engine served a LangChain agent perfectly well: it reads a context id, an optional server,
+  and a tool name. Nothing about that requires MCP.
+
+  **Writing scenario 4 found a correctness bug, and it was not small.** `realized ⊆
+  reachable ⊆ posture` is called *"a structural property of the machine"* (`DESIGN.md` §3) —
+  and it only holds for artifacts that share a **tool name space**, which nothing checked.
+  A non-MCP trace emitting bare `fetch`, against an inventory forced to emit `local__fetch`,
+  produced a **REALIZED `exfil_trifecta` over a REACHABLE two-leg** in one report. Containment
+  violated, silently. Fixed in **D14**: `server` is now optional (a flat agent's tool is
+  identified by its bare name — forcing a fake server *invented* an identity the trace never
+  carried, making the join unsatisfiable for every non-MCP user), and `join.py` computes the
+  composability join at runtime, which the report discloses when it fails — distinguishing a
+  name-space mismatch from an incomplete inventory. **We disclose; we do not repair.**
+
+  `USAGE.md` itself: the mental model, every flag of both binaries, three routes to an
+  inventory (MCP capture / `--from-tools-list` / **by hand**), how to read every section of
+  the output, and four scenarios. `tests/test_usage.py` **executes it** — every command runs,
+  every shown output line is compared against a real run, and the documented flags are pinned
+  to `argparse` in both directions. Verified it bites: a planted fake output line and a typo'd
+  flag both fail.
+
+  Scenario 4 is the best teaching artifact in the project, and it exists only because of
+  D13: on the shipped catalog the non-MCP run finds **nothing**, COVERAGE names `crm_lookup`
+  as the tool it had no opinion about, **one** overlay entry lands, and the same two files
+  yield a realized `exfil_trifecta`. Coverage → flywheel → finding, in one page.
+
+  Also: `--help` said the analyzer reads *"the MCP manifest"* — the claim **F1 disproved**.
+  289 tests green; goldens byte-identical.
+
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*
 
 > **Binding, from D13:** when the CI/SARIF surface lands, **coverage must ride into it.**

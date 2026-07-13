@@ -1,0 +1,25 @@
+{
+  "tools": [
+    {
+      "name": "publish_page",
+      "description": "Publish a page to the company wiki. Readable by everyone in the org.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "body": {"type": "string"}
+        },
+        "required": ["title", "body"]
+      }
+    },
+    {
+      "name": "read_page",
+      "description": "Read a wiki page by slug.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {"slug": {"type": "string"}},
+        "required": ["slug"]
+      }
+    }
+  ]
+}

@@ -93,6 +93,26 @@ The inventory alone gets you posture and reachable — the two tiers that need n
 trace at all. A tier with no input **does not run, and says so**; it never reports
 a clean result it did not check for.
 
+### If you don't use MCP
+
+The engine has never heard of MCP, and never will. It reads exactly three things about each
+tool: **which agent context reaches it, an optional server, and its name.** A LangChain,
+LlamaIndex, CrewAI or hand-rolled agent works today — its tools are ordinary functions, so
+there is nothing to capture: you **write the inventory**, and it is a dozen lines.
+
+```json
+{"contexts": [
+  {"id": "researcher",
+   "provenance": "transcribed by hand from our agent's tool registry. Not an MCP capture.",
+   "tools": [{"tool": {"name": "crm_lookup"}}, {"tool": {"name": "send_email"}}]}
+]}
+```
+
+No `server` key — a flat agent has none, so a tool is identified by its bare name, which is
+what its trace already emits. Point `--trace` at any OpenInference trace and all three tiers
+run. The worked example, including what to do when the catalog has never heard of your CRM,
+is [`USAGE.md`](USAGE.md) scenario 4.
+
 ### If your servers are remote or hosted
 
 `trifecta-capture` launches servers over **stdio**. A remote or hosted MCP server has
