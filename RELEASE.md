@@ -89,6 +89,71 @@ That is the Phase 3 exit claim, executed by a stranger. It has been verified aga
 the **local** wheel and the **git** install; the PyPI path is the one thing that
 cannot be tested before publication.
 
+---
+
+## The handoff, verbatim (2026-07-13)
+
+*The state of play as it was handed over, preserved unedited so that coming back to
+this cold does not require reconstructing it. Everything above is the checklist;
+this is the reasoning behind it.*
+
+> **`main` is pushed and both release PRs are open.** `main` is now at `b8ab1bf` on
+> `origin` (the three Phase 3 commits), and the release work is staged as two PRs —
+> deliberately two, because one of them is *false until you publish*.
+>
+> **[PR #2 — release prep](https://github.com/SigorMatt/trifecta-lens/pull/2)** (open,
+> mergeable now):
+>
+> - **Metadata**: `authors`, `keywords`, `classifiers`, `[project.urls]`.
+> - **The PyPI summary line was wrong.** It said the inputs were "a captured trace and
+>   the **MCP manifest**" — which D2/F1 proved false; the file an MCP host loads carries
+>   no tools at all. That sentence is the one-liner on the package page, i.e. the single
+>   sentence most people will ever read about this tool, and it was wrong about the input
+>   the two capability tiers actually run on. It now says *captured trace and tool
+>   inventory*. No test would ever have caught that.
+> - **`release.yml`**: Trusted Publishing (OIDC) on a `v*` tag — no API token in the
+>   repo, ever. It runs `make check` and `make install-check` before uploading, so the
+>   wheel that ships is one that's been installed into a clean venv and made to produce a
+>   real finding, and it refuses to publish if the tag disagrees with `project.version`.
+> - **`RELEASE.md`**: the handoff checklist.
+> - Verified: `twine check` **PASSED** on wheel and sdist (the README renders on PyPI),
+>   `make check` green (250 tests).
+>
+> **[PR #3 — the install flip](https://github.com/SigorMatt/trifecta-lens/pull/3)**
+> (**draft, do not merge yet**): flips the README from the git install to `pipx install
+> "trifecta-lens[capture]"` **and** flips the test that guards it, in one commit. Right
+> now that test fails the build unless every install command in a code block carries a
+> `git+https://` URL — because the PyPI command 404s. After the flip it fails if the
+> README stops naming the published package. The claim can't become true quietly, and it
+> can't rot back into a lie quietly either. Green on that branch too, so both states are
+> self-consistent and the flip is a one-commit operation rather than a release-day
+> scramble.
+>
+> ### What's left — yours, because it needs your account and it's one-way
+>
+> 1. **Create the PyPI project** via a *pending publisher* (this reserves the name and
+>    authorizes the workflow in one step, with no upload and no token): project
+>    `trifecta-lens`, owner `SigorMatt`, repo `trifecta-lens`, workflow `release.yml`,
+>    environment `pypi`.
+> 2. **Create the GitHub environment `pypi`** (Settings → Environments) — add yourself as
+>    a required reviewer if you want the upload to pause for approval.
+> 3. **Merge #2**, then `git tag v0.1.0 && git push origin v0.1.0`. The workflow
+>    publishes.
+> 4. **Verify from a machine that has never seen this repo**: `pipx install
+>    "trifecta-lens[capture]"`.
+> 5. **Then merge #3.**
+>
+> The reason for that ordering is the one-way door: **a PyPI version number can never be
+> reused.** If `0.1.0` goes up wrong, the only remedy is `0.1.1` and the bad artifact
+> stays visible forever — so nothing gets uploaded that hasn't passed the gates, and #3
+> stays unmerged until the package it describes actually exists.
+>
+> Memory updated: a new `trifecta-lens-release-state` note records the unpublished
+> status, both PRs, the merge order, and the fact that publishing/tagging are your calls
+> to make.
+
+---
+
 ## Bumping a version later
 
 `pyproject.toml` `project.version` and the tag move together. The findings NDJSON
