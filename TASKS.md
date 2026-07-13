@@ -771,6 +771,37 @@ which must differ, and does.
   Also: `--help` said the analyzer reads *"the MCP manifest"* — the claim **F1 disproved**.
   289 tests green; goldens byte-identical.
 
+- [x] **3.14 Cross-agent flow (D15).** Asked why cross-agent multi-hop was a non-goal, I
+  ran one instead of reading the doc. **It fires** — the engine folds one trace with one
+  taint set and no notion of an agent, so a secret read by agent A and emailed by agent B
+  has always accepted. `SPEC.md` §8 denied it. We shipped it, denied it, and reported it
+  wrong.
+
+  **a — the honesty hole + containment.** It broke `realized ⊆ reachable`: reachable asks
+  whether ONE context holds every leg, and a cross-agent flow by definition has none, so
+  reachable goes silent exactly when realized fires. Fixed by deriving the agent from the
+  span tree (nearest `AGENT` ancestor — already in the six attributes we read), naming the
+  crossing on the finding, and having the report state that reachable **cannot corroborate
+  it** and its silence is not reassurance. Findings `1.0 → 1.1`.
+
+  **b — the capability.** `delegates_to` on a context; its transitive closure is a
+  **delegation chain**, pooled into a synthetic `LabeledContext` exactly as posture's union
+  already is — so `detect_capability` runs **unchanged**. Three bags, one automaton, and
+  `realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture` stays structural.
+  `trifecta-capture --delegates`. Findings `1.1 → 1.2` (the `tier` enum).
+
+  **The tier-honesty work was the whole of it.** `reachable_cross_agent` is the **weakest**
+  claim the tool makes: it rests on an assumption the operator supplied that no artifact
+  corroborates. It gets its own tier id, states the assumption and whose it is, disclaims
+  the stronger tier outright ("*not the lethal-trifecta condition proper — reachable did not
+  accept here*"), and reports **only what reachable could not** — a chain that a single
+  agent already wires is reachable, and is reported there. **The handoff is never
+  inferred**: an inventory says what an agent can *reach*, never who it *talks to*, so
+  undeclared means the tier does not run. A dangling edge fails the load rather than
+  silently shrinking the chain.
+
+  302 tests green; install-check green.
+
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*
 
 > **Binding, from D13:** when the CI/SARIF surface lands, **coverage must ride into it.**

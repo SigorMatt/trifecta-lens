@@ -576,14 +576,30 @@ to B"*, and the value could have reached B by any route. Saying *"one agent hand
 to another"* is exactly the causal claim invariant 4 forbids, dressed up as an architectural
 insight. A test forbids the words.
 
-**Part 2 — delegation edges (not yet built).** Reachable's edge relation is *co-exposure
-within one context*. Modelling cross-agent capability needs a second relation: **can context
-A hand data to context B?** That cannot be inferred from an inventory — the operator declares
-it, as they declare contexts. Per **D1's own precedent**, redefining a Stage-1 edge is *not*
-an automaton change, so it stays inside the invariants; it *is* a `SPEC.md` §5 change. And the
-tier-honesty risk is the whole of it: a cross-agent reachable finding rests on an **extra
-assumption** — that data really does flow across the declared handoff — so it is a **weaker**
-claim than single-context reachable and must never borrow its language.
+**Part 2 — delegation edges (shipped).** A context may declare `delegates_to`. The transitive
+closure of those edges is a **delegation chain**, and a chain's pooled tools are handed to the
+*same* automaton — as a synthetic `LabeledContext`, exactly as posture's union already is. So
+there is **no new machinery**: three bags of tools, one machine, and
+`realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture` stays structural. Per **D1's
+precedent** this redefines a Stage-1 edge, not the automaton, so it is inside the invariants;
+it *is* a `SPEC.md` §5 change, hence its place here.
+
+**The tier-honesty risk was the whole of the work.** `reachable_cross_agent` is the **weakest**
+claim the tool makes: it rests on an assumption the *operator* supplied, which no captured
+artifact corroborates and no trace was consulted to check. So it gets its own tier id, its own
+summary and its own note; it states the assumption and whose it is (*"if the declared handoff
+is wrong, this finding is wrong"*); it disclaims the stronger tier outright (*"not the
+lethal-trifecta condition proper — that is reachable, and reachable did not accept here"*);
+and it reports **only what reachable could not**, because emitting an exposure twice would let
+the weaker claim ride on the stronger one's evidence.
+
+**And the handoff is never inferred.** An inventory records what each agent can *reach*, never
+who it *talks to*. Undeclared means the tier does not run — honest, and the only option that
+does not manufacture the finding. A handoff naming a context that does not exist **fails the
+load** rather than silently shrinking the chain, which would under-report.
+
+Findings `1.1 → **1.2**`: the `tier` enum gains `reachable_cross_agent`. A consumer switching
+on `tier` **must not** fold it into `reachable`.
 
 ---
 

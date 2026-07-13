@@ -39,6 +39,9 @@ _LEGEND: Final[tuple[str, ...]] = (
     "REALIZED   a run DID wire it: a tainted value was observed reaching a sink, "
     "verbatim.",
     "REACHABLE  one agent context COULD wire it. No run was observed doing so.",
+    "REACHABLE ACROSS A DECLARED CHAIN   no single agent could wire it, but agents "
+    "you told us hand data to one another could, between them. Rests on YOUR "
+    "declaration; nothing corroborates it.",
     "POSTURE    the legs exist somewhere in the stack. Weakest tier — it overlaps "
     "ordinary static scanners.",
 )
@@ -187,6 +190,8 @@ class TierResults:
     realized: tuple[Finding, ...] | None = None
     reachable: tuple[CapabilityFinding, ...] | None = None
     posture: tuple[CapabilityFinding, ...] | None = None
+    #: Reachable across a declared delegation chain (D15). ``None`` when no inventory.
+    reachable_cross: tuple[CapabilityFinding, ...] | None = None
     collapse: ReachableCollapse | None = None
     #: Whether the trace and the inventory describe ONE system (D8/D14). ``None`` when
     #: only one of them was given — there is nothing to join.
@@ -415,6 +420,9 @@ def format_report(
         results.reachable,
         results.coverage,
         results.collapse.disclosure if results.collapse else "",
+    )
+    lines += _capability_section(
+        "REACHABLE ACROSS A DECLARED CHAIN", results.reachable_cross, results.coverage
     )
     lines += _capability_section("POSTURE", results.posture, results.coverage)
 

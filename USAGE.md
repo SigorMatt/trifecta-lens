@@ -86,6 +86,7 @@ file. **It calls no tool.**
 | `--config` | The config your MCP host already loads (`.mcp.json`, `claude_desktop_config.json`). It holds only launch config — **the tool list is not in it**, which is why this step exists. |
 | `--context ID=SERVER,SERVER` | Which agent sees which servers. **Declare your real contexts.** With none declared the whole config is one context — honest, but then reachable can only restate posture, and it says so. |
 | `--note ID=TEXT` | What that context *is*, in **your** words. Carried into the report verbatim. Without one, the artifact records that no note was given — it will not invent a description. |
+| `--delegates ID=ID,ID` | Which contexts this one can **hand data to**. Turns on the `reachable_cross_agent` tier (§7 scenario 5). It cannot be inferred — a tool list says what an agent can *reach*, never who it *talks to* — so without it that tier does not run. |
 | `--from-tools-list SERVER=FILE` | See (b). |
 | `--out` | Where to write it (default `inventory.json`). |
 
@@ -173,9 +174,11 @@ identical from here, and the report says exactly that rather than guessing. If i
 |---|---|---|
 | `[REALIZED]` | a value was **observed** reaching a sink, verbatim, in the trace | evidence |
 | `[REACHABLE]` | all legs are exposed to **one** agent context — a single run *could* wire them. **None was observed doing so.** | capability |
+| `[REACHABLE_CROSS_AGENT]` | no single agent could wire it, but agents you **declared** can hand data to one another pool the legs between them | weakest capability claim: it rests on **your** declaration, which nothing corroborates |
 | `[POSTURE]` | the legs exist **somewhere** in the stack | weakest — overlaps ordinary static scanners |
 
-`realized ⊆ reachable ⊆ posture`, structurally.
+`realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture`, structurally. Each tier hands
+the same automaton a wider bag of tools.
 
 **Inside a finding:**
 
@@ -318,6 +321,53 @@ would make every directory listing a leg of an exfil finding. **A wrong label is
 a missing one.**
 
 ---
+
+### Scenario 5 — "One agent reads, another sends" (multi-agent)
+
+*An orchestrator with two sub-agents. `reader` can browse and read secrets but has **no
+outbound tool**. `sender` can email and nothing else. Neither can leak on its own — and
+that is exactly why this is the case people miss.*
+
+Declare the handoff — in the inventory (`"delegates_to": ["sender"]`) or at capture time:
+
+```
+trifecta-capture --config .mcp.json --out inventory.json \
+    --context reader=web,vault --context sender=mail \
+    --delegates reader=sender
+```
+
+```
+trifecta-lens --trace fixtures/cross_agent_handoff.jsonl --inventory fixtures/usage/delegating_inventory.json
+```
+
+```text
+--- REACHABLE ---------------------------------------------------------
+
+no findings at this tier: the captured inventory does not carry all the legs of any family we detect.
+
+
+--- REACHABLE ACROSS A DECLARED CHAIN ---------------------------------
+
+[REACHABLE_CROSS_AGENT]  exfil_trifecta  (all three legs)
+  no single agent could wire exfil_trifecta, but the DECLARED delegation chain 'reader -> sender' pools legs that reach send_email
+...
+```
+
+**Reachable is silent, and correctly so** — it asks whether *one* agent holds every leg, and
+here neither does. That silence is not safety. `reachable_cross_agent` is the tier that can
+see it: it pools the tools of agents you told us can pass data between them.
+
+**It is the weakest claim the tool makes, and it says so.** It rests on **your** declaration
+— that these agents really can hand data to one another — which no captured artifact
+corroborates. If the declared handoff is wrong, the finding is wrong. It never borrows
+reachable's language, because it is not reachable: reachable did not accept here.
+
+Without `delegates_to`, this tier simply **does not run** — which is honest. We will not
+invent a handoff: an inventory records what each agent can *reach*, never who it *talks to*.
+
+And in this run the realized tier fires too, naming the agents the flow crossed. Cross-agent
+flow **within one trace** has always been detected (`SPEC.md` §8); cross-*session* — a value
+stored in one run and read in the next — is a different problem and is not.
 
 ## 8. Where to go next
 

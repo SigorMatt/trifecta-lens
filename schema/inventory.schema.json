@@ -2,14 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/trifecta-lens/schema/inventory.schema.json",
   "title": "trifecta-lens tool inventory (v1)",
-  "description": "The captured tool inventory: the analyzer's second input (SPEC.md §7, DECISIONS.md D2/D11). This is a PUBLIC INPUT CONTRACT. `trifecta-capture` produces this file for stdio MCP servers, but it is not the only way to produce one and it is not the contract — this schema is. An inventory assembled from a `tools/list` response you obtained by ANY means from a real running server (curl, a script, a hosted server's own API, any transport MCP invents next) is a capture, and is exactly as legitimate as one this repo's tooling wrote. What must never happen is inventing a tool that no server listed.\n\nWHAT THE ANALYZER ACTUALLY READS: per context, its `id`, and for each tool the `server` plus `tool.name`. That is all detection consumes. The rest of the `tools/list` entry (`description`, `inputSchema`, ...) is recorded VERBATIM for the human who will audit the artifact, and is read by no detector — see DECISIONS.md F2 for why schemas cannot constrain reachability. So the cost of hand-assembling an inventory for an unsupported transport is small, and it is deliberately small.\n\nNO IN-BAND VERSION IS REQUIRED. Unlike the findings NDJSON — an output that strangers parse a single line of, and which therefore carries `schema_version` on every line — the inventory is an INPUT whose reader we ship. A required version field would invalidate every inventory already captured and buy nothing. An optional `schema_version` is permitted and ignored.",
+  "description": "The captured tool inventory: the analyzer's second input (SPEC.md \u00a77, DECISIONS.md D2/D11). This is a PUBLIC INPUT CONTRACT. `trifecta-capture` produces this file for stdio MCP servers, but it is not the only way to produce one and it is not the contract \u2014 this schema is. An inventory assembled from a `tools/list` response you obtained by ANY means from a real running server (curl, a script, a hosted server's own API, any transport MCP invents next) is a capture, and is exactly as legitimate as one this repo's tooling wrote. What must never happen is inventing a tool that no server listed.\n\nWHAT THE ANALYZER ACTUALLY READS: per context, its `id`, and for each tool the `server` plus `tool.name`. That is all detection consumes. The rest of the `tools/list` entry (`description`, `inputSchema`, ...) is recorded VERBATIM for the human who will audit the artifact, and is read by no detector \u2014 see DECISIONS.md F2 for why schemas cannot constrain reachability. So the cost of hand-assembling an inventory for an unsupported transport is small, and it is deliberately small.\n\nNO IN-BAND VERSION IS REQUIRED. Unlike the findings NDJSON \u2014 an output that strangers parse a single line of, and which therefore carries `schema_version` on every line \u2014 the inventory is an INPUT whose reader we ship. A required version field would invalidate every inventory already captured and buy nothing. An optional `schema_version` is permitted and ignored.",
   "type": "object",
-  "required": ["contexts"],
+  "required": [
+    "contexts"
+  ],
   "properties": {
     "contexts": {
-      "description": "One entry per agent context. Posture reads the UNION of these; reachable reads each one separately — which is the whole reason the artifact is a list and not a flat tool set (DECISIONS.md D1). A single context is honest and common; it is also the case where reachable collapses onto posture, which the analyzer detects and discloses rather than presenting a tier that carries nothing.",
+      "description": "One entry per agent context. Posture reads the UNION of these; reachable reads each one separately \u2014 which is the whole reason the artifact is a list and not a flat tool set (DECISIONS.md D1). A single context is honest and common; it is also the case where reachable collapses onto posture, which the analyzer detects and discloses rather than presenting a tier that carries nothing.",
       "type": "array",
-      "items": { "$ref": "#/$defs/context" }
+      "items": {
+        "$ref": "#/$defs/context"
+      }
     },
     "schema_version": {
       "description": "Optional and ignored. Present only so an inventory that carries one is not rejected.",
@@ -20,7 +24,9 @@
     "context": {
       "title": "one agent context and its effective exposed tool set",
       "type": "object",
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "properties": {
         "id": {
           "description": "Stable identifier for this agent context. Cited in every capability finding.",
@@ -28,36 +34,51 @@
           "minLength": 1
         },
         "provenance": {
-          "description": "A HUMAN-WRITTEN note: what this context is, and how the tool list was obtained. Optional to the loader, but this is the field that makes the artifact auditable, and it is carried verbatim into the report. Never write it in a voice that claims more than you did — if you pasted a `tools/list` response you fetched by hand, say that; do not say a tool launched and listed the server. This is `CLAUDE.md`'s never-fabricate-a-captured-artifact rule applied to the note itself.",
+          "description": "A HUMAN-WRITTEN note: what this context is, and how the tool list was obtained. Optional to the loader, but this is the field that makes the artifact auditable, and it is carried verbatim into the report. Never write it in a voice that claims more than you did \u2014 if you pasted a `tools/list` response you fetched by hand, say that; do not say a tool launched and listed the server. This is `CLAUDE.md`'s never-fabricate-a-captured-artifact rule applied to the note itself.",
           "type": "string"
         },
         "servers": {
           "description": "The server ids this context is exposed to. Informational: the tool entries below carry their own `server`, and that is what detection joins on.",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "tools": {
-          "description": "The EFFECTIVE exposed tool set — the tools this context can actually invoke. It records the effective set, not the CAUSE of it: a subagent allowlist, a deny list, and a smaller server loadout all look identical here, and we do not model why (DECISIONS.md D2 — flow-not-causation applied to topology).",
+          "description": "The EFFECTIVE exposed tool set \u2014 the tools this context can actually invoke. It records the effective set, not the CAUSE of it: a subagent allowlist, a deny list, and a smaller server loadout all look identical here, and we do not model why (DECISIONS.md D2 \u2014 flow-not-causation applied to topology).",
           "type": "array",
-          "items": { "$ref": "#/$defs/tool_entry" }
+          "items": {
+            "$ref": "#/$defs/tool_entry"
+          }
+        },
+        "delegates_to": {
+          "description": "The contexts this one can hand data to \u2014 a DECLARED delegation edge (D15). It cannot be inferred: an inventory records what each agent can REACH, never who it TALKS TO. Declaring it turns on the `reachable_cross_agent` tier, which asks whether agents that can pass data between them pool the legs of a family that no single one of them holds. This is the weakest claim the tool makes and it says so, because it rests on this declaration and nothing corroborates it. Omitting it is honest: the tier simply does not run.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
     "tool_entry": {
       "title": "one exposed tool",
-      "description": "A tool's IDENTITY is `<server>__<tool>` when a server serves it, and its bare `<tool>` name when nothing does. That identity is also what the trace's `tool.name` must carry — it is what lets a trace and an inventory join on shared identity (the composability join, DECISIONS.md D8/D14). If they disagree, the analyzer says so and refuses to compare the tiers.\n\nQualification exists for exactly one reason: under MCP, two servers may each expose a `read`. An agent whose tools are ordinary local functions (LangChain, LlamaIndex, a hand-rolled loop) has NO servers and a flat name space — so it OMITS `server`, and its tools are identified by bare name, which is what its trace carries. Inventing a fake server for such a stack would invent an identity its trace does not have.",
+      "description": "A tool's IDENTITY is `<server>__<tool>` when a server serves it, and its bare `<tool>` name when nothing does. That identity is also what the trace's `tool.name` must carry \u2014 it is what lets a trace and an inventory join on shared identity (the composability join, DECISIONS.md D8/D14). If they disagree, the analyzer says so and refuses to compare the tiers.\n\nQualification exists for exactly one reason: under MCP, two servers may each expose a `read`. An agent whose tools are ordinary local functions (LangChain, LlamaIndex, a hand-rolled loop) has NO servers and a flat name space \u2014 so it OMITS `server`, and its tools are identified by bare name, which is what its trace carries. Inventing a fake server for such a stack would invent an identity its trace does not have.",
       "type": "object",
-      "required": ["tool"],
+      "required": [
+        "tool"
+      ],
       "properties": {
         "server": {
-          "description": "The server that exposed this tool. OPTIONAL — omit it for a non-MCP agent with no servers. Must not contain the `__` namespace separator.",
+          "description": "The server that exposed this tool. OPTIONAL \u2014 omit it for a non-MCP agent with no servers. Must not contain the `__` namespace separator.",
           "type": "string",
           "minLength": 1
         },
         "tool": {
-          "description": "The `tools/list` entry, VERBATIM. Additional properties are expected and preserved — only `name` is read by the analyzer.",
+          "description": "The `tools/list` entry, VERBATIM. Additional properties are expected and preserved \u2014 only `name` is read by the analyzer.",
           "type": "object",
-          "required": ["name"],
+          "required": [
+            "name"
+          ],
           "properties": {
             "name": {
               "description": "The bare tool name as the server reported it. The ONLY field detection consumes.",

@@ -24,16 +24,28 @@ from trifecta_lens.roles import Role
 #: must ignore unknown fields; removing/renaming/retyping is a major bump. The
 #: frozen key sets are enforced by `tests/test_findings_schema.py` against
 #: `schema/findings.schema.json`, so a field cannot move without this moving too.
-SCHEMA_VERSION: Final[str] = "1.1"
+SCHEMA_VERSION: Final[str] = "1.2"
 
 #: The three tiers (SPEC.md §5). Kept explicit so a lower tier can never silently
 #: inherit realized's language or weight (CLAUDE.md invariant 3).
 TIER_REALIZED: Final[str] = "realized"
 TIER_REACHABLE: Final[str] = "reachable"
+#: Reachable across a DECLARED delegation chain (D15). A distinct tier, not a flavour
+#: of `reachable`, because it is a **weaker** claim: it rests on an extra assumption the
+#: operator supplied — that data really can pass between those agents — which no
+#: artifact
+#: we hold can corroborate. A tier that borrows a stronger tier's name borrows its
+#: credibility (CLAUDE.md invariant 3).
+TIER_REACHABLE_CROSS: Final[str] = "reachable_cross_agent"
 TIER_POSTURE: Final[str] = "posture"
 
 #: Weakest first. A tier's *strength* is fixed here and nowhere else.
-TIERS: Final[tuple[str, ...]] = (TIER_POSTURE, TIER_REACHABLE, TIER_REALIZED)
+TIERS: Final[tuple[str, ...]] = (
+    TIER_POSTURE,
+    TIER_REACHABLE_CROSS,
+    TIER_REACHABLE,
+    TIER_REALIZED,
+)
 
 #: How an edge in the reported path is justified (SPEC.md §5, DECISIONS.md D5).
 #: CAUSAL: the trace's own parent_id chain links the two spans.

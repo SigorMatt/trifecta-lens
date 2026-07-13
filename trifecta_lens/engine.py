@@ -34,6 +34,7 @@ from trifecta_lens.findings import (
     BASIS_TEMPORAL,
     TIER_POSTURE,
     TIER_REACHABLE,
+    TIER_REACHABLE_CROSS,
     TIER_REALIZED,
     CapabilityFinding,
     CapabilityLeg,
@@ -401,10 +402,36 @@ SUMMARY_REACHABLE: Final[str] = (
     "could wire them to {sink}"
 )
 
+#: The cross-agent tier's own words. It may NOT borrow reachable's (invariant 3): this
+#: is the WEAKER claim, and the thing that makes it weaker — an assumption the operator
+#: handed us and no artifact corroborates — has to be in the sentence.
+SUMMARY_REACHABLE_CROSS: Final[str] = (
+    "no single agent could wire {family}, but the DECLARED delegation chain "
+    "'{context}' pools legs that reach {sink}"
+)
+NOTE_REACHABLE_CROSS: Final[str] = (
+    "This is the WEAKEST capability claim we make, and it is weaker than reachable "
+    "in a specific way: it rests on an assumption YOU supplied — that these agents "
+    "can pass data between them — which nothing in the captured inventory "
+    "corroborates and no trace here was consulted to check. No single agent context "
+    "holds these legs. If the declared handoff is wrong, this finding is wrong. It is "
+    "not evidence that any data moved, and it is not the lethal-trifecta condition "
+    "proper — that is reachable, and reachable did not accept here."
+)
+
 _TIER_TEXT: Final[dict[str, tuple[str, str]]] = {
     TIER_POSTURE: (SUMMARY_POSTURE, NOTE_POSTURE),
     TIER_REACHABLE: (SUMMARY_REACHABLE, NOTE_REACHABLE),
+    TIER_REACHABLE_CROSS: (SUMMARY_REACHABLE_CROSS, NOTE_REACHABLE_CROSS),
 }
+
+DISCLOSURE_REACHABLE_CROSS: Final[str] = (
+    "reachable-across-a-chain sits BETWEEN reachable and posture: tighter than posture "
+    "(it pools only agents you said can hand data to one another, not the whole stack) "
+    "and looser than reachable (no single agent holds these legs). It exists because a "
+    "flow that changes hands is real — and because reachable is structurally unable to "
+    "see one."
+)
 
 DISCLOSURE_POSTURE: Final[str] = (
     "posture is the weakest of the three tiers and overlaps what ordinary static "
@@ -550,6 +577,51 @@ def detect_capability(
             note=note,
             scope=CAPABILITY_SCOPE,
             disclosure=disclosure,
+        )
+
+
+def detect_reachable_cross_agent(stack: LabeledStack) -> Iterator[CapabilityFinding]:
+    """Reachable across a **declared** delegation chain (D15, `SPEC.md` §5).
+
+    Reachable's edge relation is co-exposure *within one context*. It is therefore
+    **structurally unable** to see a flow that changes hands: in a cross-agent flow no
+    single context holds every leg, by definition — which is exactly the shape that
+    produced a REALIZED finding against a silent REACHABLE tier (D15 part 1).
+
+    This tier closes that hole from the capability side. It pools the tools of the
+    agents
+    the operator declared can hand data to one another, and asks the automaton the same
+    question. **No new machinery:** a chain is a synthetic ``LabeledContext``, precisely
+    as posture's union is, so ``detect_capability`` runs unchanged (``model.py``
+    ``delegation_context``). Three bags, one machine.
+
+    **It reports only what reachable could not.** If some single context in the chain
+    already accepts the family, that IS ordinary reachable and is reported there —
+    emitting it again under a weaker tier would double-count one exposure and let the
+    weaker claim ride on the stronger one's evidence.
+
+    **Nothing is inferred.** An inventory records what each agent can *reach*, never who
+    it *talks to*, so the handoff cannot be derived from it — the operator declares it.
+    That is what makes this the weakest capability claim we make, and why it says so.
+    """
+    for chain in stack.delegation_chains():
+        pooled = stack.delegation_context(chain)
+        accepted = satisfied_families(pooled.roles())
+        if not accepted:
+            continue
+
+        # Anything a single agent in this chain can already wire is REACHABLE, and is
+        # reported there. This tier is for what needs the handoff.
+        single = {
+            family.id
+            for context_id in chain
+            for family in satisfied_families(stack.context(context_id).roles())
+        }
+        if accepted[0].id in single:
+            continue
+
+        yield from detect_capability(
+            pooled, TIER_REACHABLE_CROSS, DISCLOSURE_REACHABLE_CROSS
         )
 
 

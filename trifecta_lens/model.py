@@ -139,6 +139,10 @@ class LabeledContext:
     id: str
     provenance: str
     tools: tuple[LabeledTool, ...]
+    #: The contexts this one can hand data to — declared by the operator, never
+    #: inferred (D15). Reachable's own edge relation is co-exposure WITHIN this
+    #: context; these are the edges BETWEEN contexts.
+    delegates_to: tuple[str, ...] = ()
 
     def roles(self) -> frozenset[str]:
         """Every role exposed to this context — the leg set reachable evaluates."""
@@ -184,6 +188,59 @@ class LabeledStack:
                 "the union of every context in the captured inventory — not a real "
                 "agent context, and not a claim that any single one exposes all of "
                 "these tools"
+            ),
+            tools=tuple(by_name[name] for name in sorted(by_name)),
+        )
+
+
+    def delegation_chains(self) -> tuple[tuple[str, ...], ...]:
+        """Every set of contexts joined by declared handoffs, size > 1 (D15).
+
+        The transitive closure of ``delegates_to`` from each context. A chain is a set
+        of agents that can pass data along, so their tools are, between them, wireable
+        end to end — which is the question the cross-agent tier asks.
+
+        Deduplicated by membership and sorted, so the output is deterministic. A
+        single-context "chain" is not one: that is ordinary reachable.
+        """
+        by_id = {c.id: c for c in self.contexts}
+        chains: set[frozenset[str]] = set()
+        for root in self.contexts:
+            reached, frontier = {root.id}, [root.id]
+            while frontier:
+                current = by_id[frontier.pop()]
+                for nxt in current.delegates_to:
+                    if nxt not in reached:
+                        reached.add(nxt)
+                        frontier.append(nxt)
+            if len(reached) > 1:
+                chains.add(frozenset(reached))
+        return tuple(tuple(sorted(chain)) for chain in sorted(chains, key=sorted))
+
+    def delegation_context(self, chain: tuple[str, ...]) -> LabeledContext:
+        """One chain, collapsed to a bag of tools — the cross-agent tier's input.
+
+        The **same** move posture makes with :meth:`posture_context`, which is why this
+        needs no new detector: the automaton runs over a leg set, and a leg set is a leg
+        set. Posture's bag is *every* context; a chain's bag is the contexts a declared
+        handoff can carry data between. Ordinary reachable's is one context.
+
+        Three bags, one machine, and each is a subset of the next — which is what keeps
+        `reachable ⊆ reachable-across-a-chain ⊆ posture` structural rather than
+        asserted.
+        """
+        by_name: dict[str, LabeledTool] = {}
+        for context_id in chain:
+            for tool in self.context(context_id).tools:
+                if tool.name not in by_name:
+                    by_name[tool.name] = tool
+        return LabeledContext(
+            id=" -> ".join(chain),
+            provenance=(
+                "a DECLARED delegation chain, not a single agent context: "
+                + " -> ".join(chain)
+                + ". These agents' tool sets are pooled because you told us data can "
+                "pass between them. Nothing here was observed."
             ),
             tools=tuple(by_name[name] for name in sorted(by_name)),
         )

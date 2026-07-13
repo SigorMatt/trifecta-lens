@@ -306,7 +306,7 @@ build if a field is added, removed or renamed without a version bump.
       "to": "4b85b6426897725d"
     }
   ],
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "scope": "verbatim taint only (SPEC.md \u00a76): a value that was encoded, split, summarized or paraphrased between source and sink does not match, and so would not appear here. Absence of a finding is not evidence of absence of a flow.",
   "sink": {
     "event": "4b85b6426897725d",

@@ -1,0 +1,15 @@
+{
+  "contexts": [
+    {
+      "id": "reader",
+      "provenance": "HAND-AUTHORED for USAGE.md scenario 5 — not a capture. A research sub-agent: it can browse the web and read our secret store, and it hands what it finds to the sender. It has NO outbound tool of its own.",
+      "delegates_to": ["sender"],
+      "tools": [{"tool": {"name": "fetch"}}, {"tool": {"name": "read_secret"}}]
+    },
+    {
+      "id": "sender",
+      "provenance": "HAND-AUTHORED for USAGE.md scenario 5 — not a capture. A notifier sub-agent: it can send email and nothing else. It reads nothing sensitive and browses nothing.",
+      "tools": [{"tool": {"name": "send_email"}}]
+    }
+  ]
+}

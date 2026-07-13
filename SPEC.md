@@ -224,6 +224,41 @@ equal to posture. The tool must **detect that collapse and disclose it** ("reach
 adds no information on this stack: all legs share one context") rather than
 presenting a tier that silently says nothing.
 
+### Reachable across a declared chain — keyed to operator-declared handoffs (D15)
+
+Reachable's edge relation is co-exposure **within one context**. It is therefore
+*structurally unable* to see a flow that **changes hands**: in a cross-agent flow no single
+context holds every leg — that is what makes it cross-agent — so reachable goes silent
+exactly where the danger is, and silence reads as safety. (This is not hypothetical: it
+produced a realized finding against a silent reachable tier, `DECISIONS.md` D15.)
+
+So a **third capability tier**, sitting between reachable and posture. A context may declare
+`delegates_to` — the contexts it can hand data to. The transitive closure of those edges is
+a **delegation chain**; the chain's pooled tools are handed to the *same* automaton, exactly
+as posture hands it the union of every context. Three bags, one machine — which is what
+keeps
+
+```
+realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture
+```
+
+structural rather than asserted.
+
+**It is the weakest claim the tool makes, and it must always read as one.** Binding:
+
+- Its tier id is `reachable_cross_agent`, **never** `reachable`.
+- It rests on an assumption the **operator supplied** — that data really can pass between
+  those agents — which **no captured artifact corroborates** and no trace was consulted to
+  check. Every finding says so, and says whose assumption it is.
+- It **never** borrows reachable's language or headline. Reachable is the lethal-trifecta
+  condition proper; this tier fires precisely when reachable did **not** accept.
+- It reports **only what reachable could not**: if a single context in the chain already
+  accepts the family, that is reachable and is reported there. Emitting it twice would let
+  the weaker claim ride on the stronger one's evidence.
+- **The handoff is never inferred.** An inventory records what each agent can *reach*, never
+  who it *talks to*. Undeclared means the tier does not run — which is honest. Inventing the
+  edge would manufacture the finding.
+
 ### Realized — keyed to the trace
 1. Tag values originating in `untrusted_source` and `sensitive_data` spans
    (§6).

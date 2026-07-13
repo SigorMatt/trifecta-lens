@@ -32,6 +32,7 @@ from trifecta_capture.inventory_build import (
     load_host_config,
     load_tools_list,
     merge_servers,
+    parse_delegates,
     resolve_contexts,
     supplied_servers,
 )
@@ -154,6 +155,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="declare an agent context and the servers it is exposed to (repeatable)",
     )
     parser.add_argument(
+        "--delegates",
+        action="append",
+        default=[],
+        metavar="ID=ID,ID",
+        help=(
+            "declare that a context can hand data to others (repeatable). Turns on the "
+            "reachable_cross_agent tier: agents that pass data between them can pool "
+            "legs no single one of them holds. It cannot be inferred — a tool list "
+            "says what an agent can REACH, never who it TALKS TO. Omitting it is "
+            "honest; the tier just does not run."
+        ),
+    )
+    parser.add_argument(
         "--note",
         action="append",
         default=[],
@@ -188,7 +202,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         supplied = supplied_servers(list(args.from_tools_list))
         servers = merge_servers(launchable, supplied)
         notes = _notes(list(args.note))
-        contexts = resolve_contexts(servers, list(args.context), notes)
+        declared_ids = {
+            d.partition("=")[0].strip() for d in args.context
+        } or {"default"}
+        delegates = parse_delegates(list(args.delegates), declared_ids)
+        contexts = resolve_contexts(servers, list(args.context), notes, delegates)
         if len(contexts) == 1:
             print(
                 "note: one context declared, so reachable will equal posture on this "

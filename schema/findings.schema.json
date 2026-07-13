@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/trifecta-lens/schema/findings.schema.json",
   "title": "trifecta-lens findings NDJSON line (v1)",
-  "description": "One finding per NDJSON line (keys sorted, sort_keys=True). A public, versioned contract (SPEC.md \u00a77.1). v1.1 adds `agents` / `crosses_agents` / `legs[].agent` \u2014 additive, a minor bump; consumers ignoring unknown fields are unaffected. Discriminated by `tier`: a realized line carries trace evidence; a capability line (posture/reachable) carries inventory capability and structurally cannot carry realized's evidence keys. Consumers MUST ignore unknown fields; a new optional field is a minor version bump, a removal/rename/retype is a major bump.",
+  "description": "One finding per NDJSON line (keys sorted, sort_keys=True). A public, versioned contract (SPEC.md \u00a77.1). v1.2 adds the `reachable_cross_agent` tier value (see `tier`). v1.1 added `agents` / `crosses_agents` / `legs[].agent` \u2014 additive, a minor bump; consumers ignoring unknown fields are unaffected. Discriminated by `tier`: a realized line carries trace evidence; a capability line (posture/reachable) carries inventory capability and structurally cannot carry realized's evidence keys. Consumers MUST ignore unknown fields; a new optional field is a minor version bump, a removal/rename/retype is a major bump.",
   "type": "object",
   "required": [
     "schema_version",
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1"
+      "const": "1.2"
     }
   },
   "oneOf": [
@@ -47,7 +47,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "1.1"
+          "const": "1.2"
         },
         "tier": {
           "const": "realized"
@@ -220,7 +220,7 @@
       }
     },
     "capability": {
-      "title": "capability finding (posture / reachable)",
+      "title": "capability finding (posture / reachable / reachable_cross_agent)",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -239,13 +239,15 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "1.1"
+          "const": "1.2"
         },
         "tier": {
           "enum": [
             "posture",
-            "reachable"
-          ]
+            "reachable",
+            "reachable_cross_agent"
+          ],
+          "description": "`reachable_cross_agent` (v1.2, D15) is a THIRD capability tier, sitting between reachable and posture: no single agent context holds all the legs, but a DECLARED delegation chain pools them. It is the WEAKEST claim we make \u2014 it rests on an assumption the operator supplied (that data can pass between those agents) which no captured artifact corroborates. A consumer that switches on `tier` MUST NOT treat it as `reachable`: doing so lets the weaker claim borrow the stronger one's weight."
         },
         "family": {
           "type": "string"

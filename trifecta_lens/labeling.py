@@ -63,6 +63,7 @@ def label_inventory(
                 id=context.id,
                 provenance=context.provenance,
                 tools=tuple(_tool(tool.qualified) for tool in context.tools),
+                delegates_to=context.delegates_to,
             )
             for context in inventory.contexts
         )

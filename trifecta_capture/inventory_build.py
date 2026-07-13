@@ -65,6 +65,9 @@ class ContextSpec:
     id: str
     servers: tuple[str, ...]
     note: str | None
+    #: Contexts this one can hand data to (D15). Declared, never inferred — a tools/list
+    #: response says what an agent can REACH, never who it TALKS TO.
+    delegates_to: tuple[str, ...] = ()
 
 
 def load_host_config(path: str | Path) -> dict[str, ServerSpec]:
@@ -222,10 +225,39 @@ def merge_servers(
     return {**launchable, **supplied}
 
 
+def parse_delegates(
+    raw: list[str], context_ids: set[str]
+) -> dict[str, tuple[str, ...]]:
+    """``--delegates a=b,c`` -> which contexts each one can hand data to (D15).
+
+    A handoff to a context that was never declared would silently shrink the delegation
+    chain and UNDER-report cross-agent reachability, so it fails rather than shrinks.
+    """
+    out: dict[str, tuple[str, ...]] = {}
+    for decl in raw:
+        source, sep, targets = decl.partition("=")
+        source = source.strip()
+        names = tuple(n.strip() for n in targets.split(",") if n.strip())
+        if not sep or not source or not names:
+            raise CaptureConfigError(
+                f"--delegates {decl!r} must be of the form "
+                "<context>=<context>,<context>"
+            )
+        unknown = sorted({source, *names} - context_ids)
+        if unknown:
+            raise CaptureConfigError(
+                f"--delegates {decl!r} names undeclared context(s) {unknown}; "
+                f"declared: {sorted(context_ids)}"
+            )
+        out[source] = names
+    return out
+
+
 def resolve_contexts(
     servers: dict[str, ServerSpec],
     declared: list[str],
     notes: dict[str, str],
+    delegates: dict[str, tuple[str, ...]] | None = None,
 ) -> tuple[ContextSpec, ...]:
     """Turn ``--context id=a,b`` declarations into context specs.
 
@@ -267,7 +299,10 @@ def resolve_contexts(
             raise CaptureConfigError(f"duplicate --context id {context_id!r}")
         contexts.append(
             ContextSpec(
-                id=context_id, servers=server_ids, note=notes.get(context_id)
+                id=context_id,
+                servers=server_ids,
+                note=notes.get(context_id),
+                delegates_to=(delegates or {}).get(context_id, ()),
             )
         )
 
@@ -370,12 +405,15 @@ def build_inventory(
                 )
             for tool in sorted(listed[server_id], key=lambda t: str(t.get("name"))):
                 tools.append({"server": server_id, "tool": tool})
-        out_contexts.append(
-            {
-                "id": context.id,
-                "provenance": provenance_for(context, servers, config_path),
-                "servers": list(context.servers),
-                "tools": tools,
-            }
-        )
+        entry: dict[str, Any] = {
+            "id": context.id,
+            "provenance": provenance_for(context, servers, config_path),
+            "servers": list(context.servers),
+            "tools": tools,
+        }
+        # Only written when declared. An absent key means "you told us nothing about
+        # handoffs", which is honest; an empty list would look like "there are none".
+        if context.delegates_to:
+            entry["delegates_to"] = list(context.delegates_to)
+        out_contexts.append(entry)
     return {"contexts": out_contexts}

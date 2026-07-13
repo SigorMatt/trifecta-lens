@@ -73,6 +73,13 @@ class Context:
     provenance: str
     servers: tuple[str, ...]
     tools: tuple[ToolRef, ...]
+    #: Contexts this one can hand data to — a **declared** delegation edge (D15).
+    #:
+    #: It cannot be inferred from an inventory: an inventory records what each agent
+    #: can REACH, never who it talks to. So the operator declares it, exactly as they
+    #: declare the contexts themselves. An undeclared handoff is not "no handoff" — it
+    #: is a handoff we were not told about, and the cross-agent tier says so.
+    delegates_to: tuple[str, ...] = ()
 
     def qualified_names(self) -> frozenset[str]:
         """The server-qualified names of every tool exposed to this context."""
@@ -155,12 +162,20 @@ def _context(entry: Any) -> Context:
         raise InvalidInventoryError(
             f"context {context_id!r}: 'servers' must be a list of strings"
         )
+    raw_delegates = entry.get("delegates_to", [])
+    if not isinstance(raw_delegates, list) or not all(
+        isinstance(d, str) for d in raw_delegates
+    ):
+        raise InvalidInventoryError(
+            f"context {context_id!r}: 'delegates_to' must be a list of context ids"
+        )
     tools = tuple(_tool_ref(t, context_id=context_id) for t in raw_tools)
     return Context(
         id=context_id,
         provenance=provenance,
         servers=tuple(raw_servers),
         tools=tools,
+        delegates_to=tuple(raw_delegates),
     )
 
 
@@ -180,4 +195,15 @@ def load_inventory(path: str | Path) -> Inventory:
             "inventory must be an object with a 'contexts' list"
         )
     contexts = tuple(_context(c) for c in data["contexts"])
+
+    # A handoff to a context that does not exist would silently shrink the delegation
+    # chain, UNDER-reporting cross-agent reachability. Fail rather than shrink.
+    known = {c.id for c in contexts}
+    for context in contexts:
+        unknown = sorted(set(context.delegates_to) - known)
+        if unknown:
+            raise InvalidInventoryError(
+                f"context {context.id!r} delegates to unknown context(s) {unknown}; "
+                f"known: {sorted(known)}"
+            )
     return Inventory(contexts=contexts)

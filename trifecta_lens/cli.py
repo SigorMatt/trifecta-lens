@@ -17,6 +17,7 @@ from trifecta_lens.coverage import inventory_coverage
 from trifecta_lens.engine import (
     detect_posture,
     detect_reachable,
+    detect_reachable_cross_agent,
     detect_realized,
     reachable_collapse,
 )
@@ -32,8 +33,10 @@ from trifecta_lens.svg import render_svg
 _SCOPE_HELP = (
     "v1 detects VERBATIM taint only: a value that was encoded, split, "
     "summarized or paraphrased between source and sink will NOT be detected. "
-    "Transformed taint, cross-agent multi-hop and memory-poisoning are out of "
-    "scope and are not detected. A tier with no input does not run — and says so; "
+    "Transformed taint and memory-poisoning are out of scope and are not detected, "
+    "and neither is anything crossing SESSIONS (a value stored in one run and read "
+    "in the next). Cross-agent flow WITHIN one trace IS detected, and the finding "
+    "names the agents it crossed. A tier with no input does not run — and says so; "
     "it never reports a clean result it did not check for."
 )
 
@@ -141,6 +144,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         results = replace(
             results,
             reachable=tuple(detect_reachable(stack)),
+            reachable_cross=tuple(detect_reachable_cross_agent(stack)),
             posture=tuple(detect_posture(stack)),
             collapse=reachable_collapse(stack),
             coverage=inventory_coverage(stack),
@@ -157,6 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ordered: list[NdjsonSerializable] = [
         *(results.realized or ()),
         *(results.reachable or ()),
+        *(results.reachable_cross or ()),
         *(results.posture or ()),
     ]
     if args.findings is not None:
