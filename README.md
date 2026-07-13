@@ -347,8 +347,11 @@ that is structural. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ## Status
 
 v0.1 — the analyzer, four tiers, a real MCP capture, a versioned findings schema.
-Out of scope for v1 and named as such: transformed taint, cross-agent multi-hop,
-memory poisoning. Next: the action-hijack family, SARIF, a GitHub Action.
+Out of scope for v1 and named as such: transformed taint (base64, splitting,
+paraphrase), memory-poisoning, and anything crossing **sessions** — a value stored
+in one run and read in the next. Cross-agent flow **within one trace** *is* detected,
+and the fourth tier is what models it (`SPEC.md` §8). Next: the action-hijack family,
+SARIF, a GitHub Action.
 
 `SPEC.md` (behavior) · `DESIGN.md` (the automaton) · `DECISIONS.md` (why it is
 shaped this way) · `INCIDENTS.md` (the citations) · MIT licensed.

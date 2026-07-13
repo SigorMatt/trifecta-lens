@@ -273,7 +273,14 @@ this phase owes is in **`DEBT.md`**; read it before planning.
 - **Shareable:** "gate your agent's PRs on trifecta findings" Action.
 
 ## North star (parked — not promised)
-Transformed taint, cross-agent multi-hop, memory-poisoning, cross-session state.
+Transformed taint, memory-poisoning, cross-**session** / cross-**trace** state (a value
+stored in one run and read in the next).
+
+> **Cross-agent multi-hop left this list — it shipped** (D15). It was parked here while
+> the engine was already detecting it: one trace, one taint set, no notion of an agent.
+> Cross-*session* is the genuinely different problem that remains (different files, taint
+> retention across runs), and it is what this line now means.
+
 Also parked here:
 - **Streaming / live mode** — the engine consuming spans as agents run, so
   detections fire when they occur rather than in a daily batch. Batch is the

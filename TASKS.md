@@ -817,7 +817,10 @@ which must differ, and does.
 
 ## North star — parked
 
-Not tasks. Transformed taint, cross-agent multi-hop, memory-poisoning,
-cross-session state; streaming/live mode and action-hook consumers (see
-`ROADMAP.md` north star — outbound calls from core are permanently forbidden).
-Direction only; never represented as shipped (`SPEC.md` §8).
+Not tasks. Transformed taint, memory-poisoning, cross-**session** state;
+streaming/live mode and action-hook consumers (see `ROADMAP.md` north star —
+outbound calls from core are permanently forbidden). Direction only; never
+represented as shipped (`SPEC.md` §8).
+
+**Cross-agent multi-hop is NOT on this list any more — it shipped** (3.14a/3.14b, D15).
+Do not re-park it.

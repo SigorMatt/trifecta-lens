@@ -112,5 +112,8 @@ changed is that a routine judgment call is *yours to make*, not a reason to wait
   borrow a higher tier's severity, color, or language.
 - **Flow, not causation:** realized output says *"tainted data observed reaching
   <sink>"* — never "attack", "exfiltration occurred", or "caused".
-- **No overclaiming:** verbatim taint only; transformed / cross-agent / memory
-  cases are out of scope and must be labeled as such.
+- **No overclaiming — and no *under*-claiming:** verbatim taint only; transformed
+  taint, memory-poisoning and cross-session state are out of scope and must be
+  labeled as such. But cross-agent flow *within one trace* **is** detected (D15) —
+  say so. A tool that detects a thing and denies it is as untrustworthy as one that
+  claims what it cannot do. Say what the code does, in **both** directions.
