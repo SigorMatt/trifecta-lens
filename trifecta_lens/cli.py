@@ -13,6 +13,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from trifecta_lens.catalog import Catalog, default_catalog, load_catalog
+from trifecta_lens.coverage import inventory_coverage
 from trifecta_lens.engine import (
     detect_posture,
     detect_reachable,
@@ -138,6 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             reachable=tuple(detect_reachable(stack)),
             posture=tuple(detect_posture(stack)),
             collapse=reachable_collapse(stack),
+            coverage=inventory_coverage(stack),
         )
 
     # Findings are written as they are found — an append-stream, never a document
@@ -154,6 +156,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             write_ndjson(ordered, stream)
 
     print(format_report(results=results))
+
+    # The report already says this, at length. It goes to stderr too because the one
+    # case that ruins someone's day is the one where they piped stdout to a file, saw
+    # an empty findings stream, and concluded they were clean. Only the ZERO case
+    # warns: partial coverage is normal (a real stack is full of tools that correctly
+    # carry no role), and warning on it would train people to ignore the warning.
+    if results.coverage is not None and results.coverage.nothing_matched:
+        print(
+            f"warning: the catalog matched NONE of the {results.coverage.total} tools "
+            "in this inventory. The silent tiers above are a limit of our labeling, "
+            "not a clean result. See the COVERAGE section, and --catalog.",
+            file=sys.stderr,
+        )
 
     if args.svg is not None and results.realized:
         args.svg.parent.mkdir(parents=True, exist_ok=True)

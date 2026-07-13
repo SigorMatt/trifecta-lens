@@ -708,7 +708,45 @@ which must differ, and does.
   front-end built against an imagined format is the same mistake as the manifest that
   turned out to contain no tools.* 268 tests green.
 
+- [x] **3.12 Disclose labeling coverage, so a silent tier is auditable (D13).** Pointed
+  at Slack + Postgres + Linear — `read_channel_history` (untrusted content),
+  `postgres__query` (private data), `slack__post_to_channel` (an outbound sink), one
+  context, a **textbook lethal trifecta** — the tool printed *"no findings at this tier"*.
+  It had matched **none** of the four tools against its 16-entry catalog and never said
+  so. A reader takes that for a clean bill of health.
+
+  **Our own principle, unattended.** D4 disclosed `min_value_chars` because "an
+  undisclosed threshold makes 'no finding' un-auditable — the same honesty failure as an
+  overclaim, pointed the other way." The **catalog** bounds the search far harder, and was
+  the one bound never disclosed. `report.py` even carried the rule in its docstring — *"a
+  tier that did not run is not a tier that found nothing"* — and then let a **starved**
+  tier print like a clean one.
+
+  Shipped: `trifecta_lens/coverage.py` (pure, Stage 2, keyed on roles); a **COVERAGE**
+  section before the tiers naming every unmatched tool; a silent tier that now says which
+  of three things it means (**starved** / partial / a genuine result); a stderr warning on
+  the zero case only — partial coverage is *normal*, and an alarm that fires on toast gets
+  taped over. `SPEC.md` §6.2, **D13**.
+
+  **The line D13 exists to hold:** the disclosure **counts and names; it never
+  adjudicates.** "Matched no entry" has two indistinguishable causes — a tool we never
+  heard of, and one we *deliberately* leave unlabeled (`list_directory` returns names, not
+  content; §4). On the real capture **all six** unmatched tools are the second kind, which
+  is why the partial-coverage wording is tested to stay calm. "Uncovered" overclaims a
+  gap; "safe" overclaims a clearance.
+
+  A test walks the whole flywheel: unrecognised stack → coverage disclosure → the user
+  writes four catalog entries → the **unmodified** engine surfaces the trifecta.
+  `schema_version` stays `1.0` (the dangerous case has *zero* findings, so no per-finding
+  field could carry it); goldens byte-identical. 275 tests green.
+
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*
+
+> **Binding, from D13:** when the CI/SARIF surface lands, **coverage must ride into it.**
+> A CI job consuming an empty `findings.ndjson` would otherwise report "clean" on a stack
+> the tool never recognised — 3.12's bug with a worse blast radius and no human reading a
+> report to catch it.
+
 
 - Action-hijack family (`sink:impact`), **posture + reachable only**; realized
   held back with an explicit "causation not established" note.

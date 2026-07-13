@@ -405,6 +405,71 @@ format the loader refuses is an overclaim in the one document the rest are deriv
 side and a *false statement* on the other, and neither was gated. The gates now cover
 both.
 
+## D13 — Labeling coverage is disclosed, and unmatched tools are never adjudicated
+
+*Taken 2026-07-13, after pointing the tool at a stack it had no entries for.*
+
+**The finding.** Given an inventory of Slack + Postgres + Linear —
+`slack__read_channel_history` (untrusted content), `postgres__query` (private data),
+`slack__post_to_channel` (an outbound sink), all exposed to one agent context, which is a
+**textbook lethal trifecta** — trifecta-lens printed:
+
+> `no findings at this tier: the captured inventory does not carry all the legs of any
+> family we detect.`
+
+It had matched **none** of the four tools against its 16-entry catalog, and never said so.
+A reader takes that for a clean bill of health.
+
+**This was our own principle, unattended.** D4 promoted `min_value_chars` into a disclosed
+`detected_under` field on the argument that *"an undisclosed threshold silently bounds what
+the realized tier can see, which makes 'no finding' un-auditable — the same honesty failure
+as an overclaim, pointed the other way."* The **catalog** bounds the search far harder than
+`min_value_chars` ever could, and it was the one bound never disclosed. `report.py` even
+carried the rule in its own docstring — *"a tier that did not run is not a tier that found
+nothing"* — and then let a starved tier print like a clean one.
+
+**Decision.**
+
+1. **Every report over an inventory carries a COVERAGE section, before the tiers** (it
+   bounds everything below it), stating how many tools matched and **naming every tool that
+   did not**. A count tells a reader they have a problem; the list tells them which entries
+   to write. `SPEC.md` §6.2.
+
+2. **A silent capability tier now says which of three things it means** — the catalog
+   matched *nothing* (the tier is **starved**, not clean — say so, and warn on stderr);
+   matched *some* (silence holds only among those); matched *everything* (silence is a
+   genuine result about the stack). One sentence could not honestly serve all three.
+
+3. **The disclosure counts and names. It never adjudicates.** This is the part that will be
+   tempting to "fix" later, so it is written down: *"matched no entry"* has **two causes and
+   we cannot distinguish them* — a tool we have never heard of (`postgres__query`), and a
+   tool we know and **deliberately** leave unlabeled (`list_directory` returns names, not
+   content; §4 says labeling it "would make every `ls` a leg"). On the real Checkpoint D
+   capture, **every one** of the six unmatched tools is of the second kind. So we may not
+   call an unmatched tool "uncovered" (overclaims a gap) or "safe" (overclaims a clearance).
+   Flow-not-causation, applied to the labeling layer.
+
+**Why disclosure before catalog breadth.** Breadth is endless — there will always be an
+uncovered stack — so disclosure is what makes *every* stack honest, including the ones we
+never cover. It is also what **starts the `CONTRIBUTING.md` flywheel**: until now a stranger
+with an unrecognised stack got no signal that an overlay was the answer; the tool simply
+looked like it had found nothing. A test walks the whole loop — unrecognised stack →
+coverage disclosure → the user writes four catalog entries → the **unmodified** engine
+surfaces the trifecta.
+
+**No findings-schema change.** `schema_version` stays `1.0`. The dangerous case has **zero**
+findings, so no per-finding field could have carried this — the disclosure has to live where
+the silence does.
+
+**Binding on Phase 4.** When the CI / SARIF surface lands, **coverage must ride into it.** A
+CI job consuming an empty `findings.ndjson` would otherwise report "clean" on a stack the
+tool never recognised — this same bug, with a worse blast radius and no human reading a
+report to catch it.
+
+**Deliberately not done:** new catalog entries. Disclosure is the honesty fix; breadth is the
+usefulness fix, and it is a separate, larger piece of work with a fixture bar
+(`CONTRIBUTING.md`) that this PR would have had to shortcut.
+
 ---
 
 ## Sequencing

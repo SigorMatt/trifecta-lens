@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from trifecta_lens.coverage import Coverage
 from trifecta_lens.engine import FAMILY_TRIFECTA, ReachableCollapse
 from trifecta_lens.extraction import EXTRACTION, ExtractionConfig
 from trifecta_lens.findings import (
@@ -67,6 +68,44 @@ _NO_CAPABILITY_FINDINGS: Final[str] = (
     "of any family we detect."
 )
 
+# --- Coverage: the largest bound on what we can find, and the last one disclosed ---
+#
+# `Detected under:` has always ridden on every report because an undisclosed bound makes
+# "no finding" un-auditable (D4, SPEC.md §6.1). That was written about min_value_chars.
+# It applies with far more force to the CATALOG: pointed at a stack it had no entries
+# for, this tool used to print "no findings at this tier" and let a reader take it for a
+# clean bill of health.
+#
+# What it may NOT do is classify. "Matched no entry" has two causes — a tool we have
+# never heard of, and a tool we know and deliberately leave unlabeled (a directory
+# listing returns names, not content; SPEC.md §4) — and they are indistinguishable from
+# here. So these strings count, name, and hand the reader the list. They never say
+# "uncovered" (overclaims a gap) and never say "safe" (overclaims a clearance).
+
+_COVERAGE_MEANING: Final[str] = (
+    "A tool that matches no catalog entry carries no role, and a tool with no role is "
+    "invisible to EVERY tier below. We cannot tell you which of these are harmless: a "
+    "tool we have never heard of, and a tool we know and deliberately leave unlabeled "
+    "(a directory listing returns names, not content, and carries no role by design — "
+    "SPEC.md §4), look identical from here."
+)
+_COVERAGE_ACTION: Final[str] = (
+    "Read the list. If any of those tools reads private data, ingests untrusted "
+    "content, or sends data out of your boundary, we did not see it — so a leg may be "
+    "MISSING from everything below, whether or not anything was found. Teach it:\n"
+    "  trifecta-lens --catalog my-stack.yaml ...    (CONTRIBUTING.md)"
+)
+_COVERAGE_NONE: Final[str] = (
+    "The catalog matched NOTHING in this stack. Every tier below is silent because we "
+    "recognised none of these tools — not because the stack is clean. Treat the tiers "
+    "as un-run."
+)
+_COVERAGE_COMPLETE: Final[str] = (
+    "Every tool matched a catalog entry, so a silent tier below is a result about this "
+    "stack rather than a limit of our labeling."
+)
+
+
 #: What each basis MEANS, spelled out. Printing the bare word "temporal" would be
 #: a label, not a disclosure (DECISIONS.md D5).
 _BASIS_MEANING: Final[dict[str, str]] = {
@@ -107,6 +146,10 @@ class TierResults:
     reachable: tuple[CapabilityFinding, ...] | None = None
     posture: tuple[CapabilityFinding, ...] | None = None
     collapse: ReachableCollapse | None = None
+    #: How much of the inventory the catalog had an opinion about. ``None`` when no
+    #: inventory was given (there is nothing to have covered). A silent capability
+    #: tier is only a *result* if this says the catalog recognised the stack.
+    coverage: Coverage | None = None
 
 
 def realized_is_available(events: Sequence[Event]) -> bool:
@@ -204,9 +247,52 @@ def _realized_section(results: TierResults) -> list[str]:
     return lines
 
 
+def _coverage_note(coverage: Coverage) -> str:
+    """What a silent capability tier is worth, given how much the catalog recognised."""
+    if coverage.nothing_matched:
+        return (
+            "no findings at this tier — and this is NOT a clean result. The catalog "
+            "matched none of this stack's tools, so there was nothing here for the "
+            "detector to see. See COVERAGE."
+        )
+    if not coverage.complete:
+        return (
+            f"no findings at this tier among the {len(coverage.matched)} tool(s) the "
+            f"catalog matched. {len(coverage.unmatched)} tool(s) matched no entry and "
+            "are invisible to every tier — see COVERAGE."
+        )
+    return _NO_CAPABILITY_FINDINGS
+
+
+def _coverage_section(coverage: Coverage | None) -> list[str]:
+    """Printed in EVERY report that had an inventory — including the silent ones."""
+    if coverage is None or coverage.total == 0:
+        return []
+
+    lines = _rule("COVERAGE")
+    lines.append(
+        f"The catalog matched {len(coverage.matched)} of {coverage.total} tools in "
+        "this inventory."
+    )
+    if coverage.nothing_matched:
+        lines += ["", _COVERAGE_NONE]
+    if coverage.complete:
+        lines += ["", _COVERAGE_COMPLETE, ""]
+        return lines
+
+    # The distinct tools, once. Which context exposes an unmatched tool is not
+    # load-bearing — we have no opinion about it *anywhere* — and repeating the same
+    # list per context (real stacks share servers) buries the names in duplication.
+    lines += ["", "  matched no entry:"]
+    lines += [f"    {name}" for name in coverage.unmatched]
+    lines += ["", _COVERAGE_MEANING, "", _COVERAGE_ACTION, ""]
+    return lines
+
+
 def _capability_section(
     label: str,
     findings: tuple[CapabilityFinding, ...] | None,
+    coverage: Coverage | None = None,
     disclosure: str = "",
 ) -> list[str]:
     lines = _rule(label)
@@ -215,7 +301,10 @@ def _capability_section(
     if disclosure:
         lines += [disclosure, ""]
     if not findings:
-        return [*lines, _NO_CAPABILITY_FINDINGS, ""]
+        # A silent tier means different things depending on how much of the stack the
+        # catalog recognised. One sentence cannot honestly serve all three cases.
+        note = _NO_CAPABILITY_FINDINGS if coverage is None else _coverage_note(coverage)
+        return [*lines, note, ""]
     for finding in findings:
         lines += _format_capability(finding)
     return lines
@@ -240,13 +329,19 @@ def format_report(
 
     lines = [_HEADER, "=" * len(_HEADER), "", *_LEGEND]
 
+    # Coverage comes FIRST, because it bounds everything below it. A reader who meets
+    # the tiers before learning we recognised none of their tools has already drawn the
+    # wrong conclusion by the time the caveat arrives.
+    lines += _coverage_section(results.coverage)
+
     lines += _realized_section(results)
     lines += _capability_section(
         "REACHABLE",
         results.reachable,
+        results.coverage,
         results.collapse.disclosure if results.collapse else "",
     )
-    lines += _capability_section("POSTURE", results.posture)
+    lines += _capability_section("POSTURE", results.posture, results.coverage)
 
     # The disclosure goes in EVERY report, including a silent one: "no finding" is
     # only auditable if the reader knows what the search was bounded by (SPEC §6.1).

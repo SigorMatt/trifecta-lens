@@ -284,6 +284,35 @@ Every finding carries these under a **`detected_under`** field, and the human
 report states them. The `min_value_chars` value is justified by a **measured**
 false-positive rate over the benign corpus — a number, not an assertion.
 
+### 6.2 Labeling coverage is a bound, and is disclosed (D13)
+
+The extraction parameters are **not** the only thing bounding what can be found. The
+**catalog** bounds it far harder: a tool that matches no entry carries no role, and a
+tool with no role is **invisible to every tier**. Pointed at a stack it had no entries
+for, the tool once printed "no findings at this tier" — and a reader took it for a clean
+bill of health. That is §6.1's own argument, unattended: an undisclosed bound makes "no
+finding" un-auditable.
+
+So every report over an inventory carries a **COVERAGE** section, before the tiers,
+stating how many tools the catalog matched and **naming every one it did not**.
+
+**What the disclosure may not do is classify.** "Matched no entry" has two causes and we
+cannot tell them apart:
+
+- the catalog has never heard of the tool (`postgres__query` — a real gap), and
+- the catalog knows it and **deliberately** assigns it no role (`list_directory` returns
+  names, not content — §4).
+
+Both look identical from here, and a real stack is full of the second kind. So the
+disclosure **counts and names; it never adjudicates**. Calling an unmatched tool
+"uncovered" overclaims a gap; calling it "safe" overclaims a clearance. It is
+flow-not-causation (invariant 4) applied to the labeling layer.
+
+A silent capability tier therefore says one of three things, and only the last is a
+result about the stack: the catalog matched **nothing** (the tier is starved, not clean);
+it matched **some** (silence holds only among those); it matched **everything** (silence
+is a finding about the stack).
+
 ## 7. Input/output contracts
 
 The on-disk trace-fixture format (span schema + attribute->Event mapping) is

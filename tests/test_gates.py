@@ -57,6 +57,7 @@ STAGE_2_MODULES = frozenset(
         "engine.py",  # the automaton
         "taint.py",  # value extraction + matching: keyed on ROLES and payloads
         "findings.py",  # the findings contract
+        "coverage.py",  # how much of the stack the catalog labeled: keyed on ROLES
         "report.py",  # rendering
         "svg.py",  # rendering
     }
