@@ -168,6 +168,59 @@ def test_a_handoff_to_a_context_that_does_not_exist_fails(tmp_path: Path) -> Non
         load_inventory(path)
 
 
+def test_no_doc_still_claims_there_are_three_tiers() -> None:
+    """The count drifted the moment a tier was added, and nothing caught it.
+
+    `SPEC.md` §1 said "three tiers"; `CLAUDE.md` invariant 3 said "the three tiers have
+    fixed definitions"; the posture disclosure the tool PRINTS said "the weakest of the
+    three tiers". A doc that miscounts the thing it specifies is not a rounding error —
+    invariant 3 IS the tier structure, and it was describing a structure that no longer
+    existed.
+
+    So the count is now derived, not retyped, and the docs may not contradict it.
+    """
+    from trifecta_lens.findings import TIERS
+
+    assert len(TIERS) == 4, "a tier moved; every doc below must move with it"
+
+    # The docs that SPECIFY the tier structure, and the core modules that describe it
+    # in prose a reader will trust. (ROADMAP/TASKS/DECISIONS are historical records and
+    # are correctly frozen at what was true when written.)
+    docs = ("SPEC.md", "CLAUDE.md", "README.md", "USAGE.md")
+    targets = [ROOT / name for name in docs]
+    targets += sorted((ROOT / "trifecta_lens").glob("*.py"))
+
+    for path in targets:
+        text = path.read_text(encoding="utf-8").lower()
+        for stale in ("three tiers", "three-tier framing"):
+            assert stale not in text, (
+                f"{path.name} still says {stale!r}, but there are {len(TIERS)} tiers. "
+                "The docs and the core prose specify the tier structure; one that "
+                "miscounts it is describing a machine we do not ship."
+            )
+
+
+def test_posture_and_the_chain_tier_do_not_both_claim_to_be_the_weakest() -> None:
+    """"Weaker" has TWO axes, and conflating them was a real slip in this very work.
+
+    Posture is the **loosest** — it pins down least, and overlaps ordinary static
+    scanners. `reachable_cross_agent` is the **least corroborated** — it rests on a
+    declaration nothing verifies. Those are different failings. Calling both "the
+    weakest" tells the reader one of them is something it is not, and quietly invites
+    the chain tier to inherit posture's (milder) reputation, or vice versa.
+    """
+    from trifecta_lens.engine import DISCLOSURE_POSTURE, NOTE_REACHABLE_CROSS
+
+    assert "LOOSEST" in DISCLOSURE_POSTURE
+    assert "LEAST CORROBORATED" in NOTE_REACHABLE_CROSS
+    # Neither may claim the other's failing as its own.
+    assert "least corroborated" not in DISCLOSURE_POSTURE.lower()
+    assert "loosest" in NOTE_REACHABLE_CROSS.lower(), (
+        "the chain tier must name posture as the loosest, so a reader cannot mistake "
+        "'least corroborated' for 'least specific'"
+    )
+
+
 def test_chains_are_transitive_and_deterministic(tmp_path: Path) -> None:
     """a -> b -> c pools all three: data that can walk the chain can walk all of it."""
     doc: dict[str, Any] = {

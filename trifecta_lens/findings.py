@@ -26,16 +26,18 @@ from trifecta_lens.roles import Role
 #: `schema/findings.schema.json`, so a field cannot move without this moving too.
 SCHEMA_VERSION: Final[str] = "1.2"
 
-#: The three tiers (SPEC.md §5). Kept explicit so a lower tier can never silently
+#: The tiers (SPEC.md §5). Kept explicit so a weaker tier can never silently
 #: inherit realized's language or weight (CLAUDE.md invariant 3).
 TIER_REALIZED: Final[str] = "realized"
 TIER_REACHABLE: Final[str] = "reachable"
-#: Reachable across a DECLARED delegation chain (D15). A distinct tier, not a flavour
-#: of `reachable`, because it is a **weaker** claim: it rests on an extra assumption the
-#: operator supplied — that data really can pass between those agents — which no
-#: artifact
-#: we hold can corroborate. A tier that borrows a stronger tier's name borrows its
-#: credibility (CLAUDE.md invariant 3).
+#: Reachable across a DECLARED delegation chain (D15). A distinct tier, not a flavour of
+#: `reachable`, because it is the **least corroborated** claim we make: it rests on an
+#: assumption the operator supplied — that data really can pass between those agents —
+#: which no captured artifact verifies.
+#:
+#: Least-corroborated is NOT the same as loosest. Posture is the loosest (it pins down
+#: least); this tier rests on the thinnest evidence. Two different failings, and a tier
+#: that borrows a stronger tier's name borrows its credibility (CLAUDE.md invariant 3).
 TIER_REACHABLE_CROSS: Final[str] = "reachable_cross_agent"
 TIER_POSTURE: Final[str] = "posture"
 

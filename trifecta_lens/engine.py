@@ -109,12 +109,16 @@ FAMILIES: Final[tuple[Family, ...]] = (
 def satisfied_families(legs: frozenset[Role]) -> tuple[Family, ...]:
     """Every family whose legs are all present in ``legs``, strongest first.
 
-    This one function is the automaton's acceptance condition, and **all three
-    tiers call it** — realized over a trace path's ancestry, reachable over one
-    context's exposed roles, posture over the union. That is what makes
-    ``realized ⊆ reachable ⊆ posture`` structural (`DESIGN.md` §3): the tiers differ
-    only in the leg set they hand this function, and each tier's leg set is a
-    superset of the tighter tier's. Nothing about containment rests on the report
+    This one function is the automaton's acceptance condition, and **every tier calls
+    it** — realized over a trace path's ancestry, reachable over one context's exposed
+    roles, reachable-across-a-chain over the contexts a declared handoff joins, posture
+    over the union of all of them. That is what makes
+
+        realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture
+
+    structural (`DESIGN.md` §3): the tiers differ only in the leg set they hand this
+    function, and each tier's leg set is a superset of the tighter tier's. A wider bag
+    of tools cannot accept fewer families. Nothing about containment rests on the report
     text agreeing with itself.
 
     Reporting takes the **first** (strongest); the full tuple is what the
@@ -410,13 +414,14 @@ SUMMARY_REACHABLE_CROSS: Final[str] = (
     "'{context}' pools legs that reach {sink}"
 )
 NOTE_REACHABLE_CROSS: Final[str] = (
-    "This is the WEAKEST capability claim we make, and it is weaker than reachable "
-    "in a specific way: it rests on an assumption YOU supplied — that these agents "
-    "can pass data between them — which nothing in the captured inventory "
-    "corroborates and no trace here was consulted to check. No single agent context "
-    "holds these legs. If the declared handoff is wrong, this finding is wrong. It is "
-    "not evidence that any data moved, and it is not the lethal-trifecta condition "
-    "proper — that is reachable, and reachable did not accept here."
+    "This is the LEAST CORROBORATED claim we make. Not the loosest — that is posture, "
+    "which pins down least — but the one resting on the thinnest evidence: an "
+    "assumption YOU supplied, that these agents can pass data between them, which "
+    "nothing in the captured inventory corroborates and no trace was consulted to "
+    "check. No single agent context holds these legs. If the declared handoff is "
+    "wrong, this finding is wrong. It is not evidence that any data moved, and it is "
+    "not the lethal-trifecta condition proper — that is reachable, and reachable did "
+    "not accept here."
 )
 
 _TIER_TEXT: Final[dict[str, tuple[str, str]]] = {
@@ -434,9 +439,13 @@ DISCLOSURE_REACHABLE_CROSS: Final[str] = (
 )
 
 DISCLOSURE_POSTURE: Final[str] = (
-    "posture is the weakest of the three tiers and overlaps what ordinary static "
-    "scanners already report. Do not read it as a path: it says the parts are in "
-    "the building, not that one agent can reach them all."
+    "posture is the LOOSEST tier — it pins down the least — and it overlaps what "
+    "ordinary static scanners already report. Do not read it as a path: it says the "
+    "parts are in the building, not that any one agent can reach them all. (Loosest is "
+    "not the same as least-corroborated: posture rests on the captured inventory, "
+    "while "
+    "reachable-across-a-chain rests on a handoff you declared and nothing verifies. "
+    "Different failings; each tier states its own.)"
 )
 
 #: The collapse case (DECISIONS.md D1). On a stack where every agent context can
@@ -602,7 +611,7 @@ def detect_reachable_cross_agent(stack: LabeledStack) -> Iterator[CapabilityFind
 
     **Nothing is inferred.** An inventory records what each agent can *reach*, never who
     it *talks to*, so the handoff cannot be derived from it — the operator declares it.
-    That is what makes this the weakest capability claim we make, and why it says so.
+    That is what makes this the LEAST CORROBORATED claim we make, and why it says so.
     """
     for chain in stack.delegation_chains():
         pooled = stack.delegation_context(chain)

@@ -109,8 +109,8 @@ there is nothing to capture: you **write the inventory**, and it is a dozen line
 ```
 
 No `server` key — a flat agent has none, so a tool is identified by its bare name, which is
-what its trace already emits. Point `--trace` at any OpenInference trace and all three tiers
-run. The worked example, including what to do when the catalog has never heard of your CRM,
+what its trace already emits. Point `--trace` at any OpenInference trace and every tier
+runs. The worked example, including what to do when the catalog has never heard of your CRM,
 is [`USAGE.md`](USAGE.md) scenario 4.
 
 ### If your servers are remote or hosted
@@ -346,7 +346,7 @@ that is structural. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Status
 
-v0.1 — the analyzer, three tiers, a real MCP capture, a frozen findings schema.
+v0.1 — the analyzer, four tiers, a real MCP capture, a versioned findings schema.
 Out of scope for v1 and named as such: transformed taint, cross-agent multi-hop,
 memory poisoning. Next: the action-hijack family, SARIF, a GitHub Action.
 

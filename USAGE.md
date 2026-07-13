@@ -168,7 +168,7 @@ a tool we *deliberately* leave unlabeled (`list_files` returns names, not conten
 identical from here, and the report says exactly that rather than guessing. If it matched
 **nothing**, a silent tier is not a clean result; it is a starved one, and it warns you.
 
-**The three tiers**, strongest first:
+**The tiers**, strongest first:
 
 | Badge | Claim | Weight |
 |---|---|---|

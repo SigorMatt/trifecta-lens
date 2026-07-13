@@ -26,17 +26,29 @@ of them is wrong even if it passes tests.
    tools/spans. New coverage is added as **catalog entries** (data), never as a
    new branch in the detector. If a change adds an `if tool == "specific_tool"`
    to detection logic, it is wrong — move it to the catalog.
-3. **Tier honesty.** The three tiers have fixed definitions (see `SPEC.md`).
-   Never relabel a posture finding as realized. Never let a lower tier borrow a
-   higher tier's severity, color, or language.
+3. **Tier honesty.** The tiers have fixed definitions (`SPEC.md` §5) and a fixed
+   order: `realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture`. Never
+   relabel a posture finding as realized. Never let a weaker tier borrow a
+   stronger one's severity, color, or language. **"Weaker" has two axes and they
+   are not interchangeable:** posture is the *loosest* (it pins down least);
+   reachable-across-a-chain is the *least corroborated* (it rests on the
+   operator's declared handoff, which no artifact verifies). Each tier states its
+   own limitation, never the other's.
 4. **Flow, not causation.** A realized finding states that *tainted data was
    observed reaching a sink*. It must never claim "exfiltration occurred," call
    anything an "attack," or assert the untrusted content *caused* the action.
    We observe flow; we do not prove intent.
-5. **No overclaiming coverage.** v1 detects **verbatim** taint only. Transformed
-   taint (base64, splitting, paraphrase), cross-agent multi-hop, and
-   memory-poisoning are explicitly out of scope and must be labeled as such in
-   output and docs. Never imply they are supported.
+5. **No overclaiming coverage — and no *under*-claiming it either.** v1 detects
+   **verbatim** taint only. Transformed taint (base64, splitting, paraphrase),
+   memory-poisoning, and anything crossing **sessions** (a value stored in one run
+   and read in the next) are out of scope and must be labeled as such in output and
+   docs. Never imply they are supported.
+
+   **Cross-agent flow *within one trace* IS detected** (D15) — the engine folds one
+   taint set with no notion of an agent, so it always was. This clause used to deny
+   it, and that denial was itself a violation: a tool that detects a thing and says
+   it does not is as untrustworthy as one that claims what it cannot do. **Say what
+   the code does. Both directions.**
 
 ## Architecture invariants
 

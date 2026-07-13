@@ -8,8 +8,8 @@ architecture: the property automaton, stage seam, and technology decisions).
 ## 1. Goal and scope
 
 Detect data-exfil exposure in MCP/agent systems by analyzing a captured trace
-plus the agent's captured tool inventory (§7), and report findings in three
-tiers. **v1 scope is the exfil family** (untrusted source → sensitive data → outbound sink). The
+plus the agent's captured tool inventory (§7), and report findings in **four
+tiers** (§5). **v1 scope is the exfil family** (untrusted source → sensitive data → outbound sink). The
 action-hijack family (source → impact sink) is fast-follow, posture/reachable
 only. See §8 for explicit non-goals.
 
@@ -186,17 +186,34 @@ exactly what to edit or override. See `CONTRIBUTING.md`.
 
 ## 5. Tier definitions and algorithms
 
-All three tiers are projections of **one fixed property automaton** — a
-leg-set lattice whose acceptance condition is the family's sink with the
-required legs present in the path's ancestry (source/sensitive order is
-immaterial; the sink terminates the path) — evaluated over progressively
-weaker inputs. Realized runs it over the trace event graph with a
-value-match guard; reachable over the co-exposure topology graph without the
-guard; posture over the bag of inventory roles without edges. **Realized ⊆ reachable ⊆
-posture by construction.** Full formulation in `DESIGN.md` §§2–3.
+Every tier is a projection of **one fixed property automaton** — a leg-set lattice
+whose acceptance condition is the family's sink with the required legs present in the
+path's ancestry (source/sensitive order is immaterial; the sink terminates the path) —
+evaluated over progressively weaker inputs. Realized runs it over the trace event graph
+with a value-match guard; reachable over one context's co-exposed tools without the
+guard; reachable-across-a-chain over the tools of contexts a **declared** handoff joins;
+posture over the bag of inventory roles without edges.
 
-Three tiers, three different inputs. All three are computable from **one trace +
-the inventory** — reachable does not require multiple runs.
+```
+realized ⊆ reachable ⊆ reachable-across-a-chain ⊆ posture
+```
+
+**By construction:** each tier hands the same automaton a *wider* bag of tools, and a
+wider bag cannot accept fewer families. Full formulation in `DESIGN.md` §§2–3.
+
+**Two different axes of "weaker", and they must not be conflated.**
+
+- **Looseness** — how little the tier pins down. Posture is the *loosest*: it says the
+  parts are in the building, not that any one agent can reach them. It overlaps ordinary
+  static scanners, and it is never the headline.
+- **Corroboration** — what the claim rests on. Realized rests on an observed value;
+  reachable and posture rest on the captured inventory alone;
+  **reachable-across-a-chain rests on a declaration the operator supplied that no
+  captured artifact corroborates** (§5, D15). It is the *least corroborated* tier — which
+  is a different failing from posture's, and each must say its own.
+
+Four tiers, and all four are computable from **one trace + the inventory** — none
+requires multiple runs.
 
 ### Posture — keyed to the inventory, across all contexts
 Compute the set of roles present in the **union** of the tool inventory's contexts

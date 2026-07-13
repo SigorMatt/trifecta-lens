@@ -43,7 +43,7 @@ def label_inventory(
     """Label the captured inventory into the topology graph (SPEC.md §2.1).
 
     The **same catalog** labels the trace and the inventory. That is not tidiness:
-    it is the reason the three tiers describe one system. A tool the trace calls
+    it is the reason the tiers describe one system. A tool the trace calls
     and the same tool sitting in the inventory get the same roles from the same
     entry, so a realized finding at a sink is guaranteed to have a reachable and a
     posture counterpart at that sink — the containment claim cannot drift.

@@ -1,6 +1,6 @@
 """The tiered human report (SPEC.md §5, §7). Pure: values in, a string out.
 
-All three tiers, each with its own badge, its own verb, and its own weight. The
+Every tier, each with its own badge, its own verb, and its own weight. The
 report's whole job is to keep them apart (`CLAUDE.md` invariant 3), so three rules
 are structural here rather than editorial:
 
