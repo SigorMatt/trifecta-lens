@@ -251,14 +251,23 @@ build if a field is added, removed or renamed without a version bump.
 
 ```json
 {
+  "agents": [
+    "48c39e14c7b99b21"
+  ],
+  "crosses_agents": false,
   "detected_under": {
     "match": "containment",
     "min_value_chars": 8,
-    "normalization": ["trim", "casefold", "collapse-whitespace"]
+    "normalization": [
+      "trim",
+      "casefold",
+      "collapse-whitespace"
+    ]
   },
   "family": "sensitive_to_exfil_sink",
   "legs": [
     {
+      "agent": "48c39e14c7b99b21",
       "catalog_entry": "mcp.filesystem.content_read",
       "event": "485697cce52b7fa2",
       "note": "reads file contents from the local filesystem (MCP filesystem server)",
@@ -266,6 +275,7 @@ build if a field is added, removed or renamed without a version bump.
       "tool": "filesystem__read_text_file"
     },
     {
+      "agent": "48c39e14c7b99b21",
       "catalog_entry": "mcp.notify.send",
       "event": "4b85b6426897725d",
       "note": "sends a message body to an outbound notification endpoint",
@@ -273,18 +283,35 @@ build if a field is added, removed or renamed without a version bump.
       "tool": "notify__send"
     }
   ],
-  "legs_not_observed": ["untrusted_source"],
-  "legs_observed": ["sensitive_data", "sink:exfil"],
-  "masked_values": ["sk-demo-...MASKED"],
+  "legs_not_observed": [
+    "untrusted_source"
+  ],
+  "legs_observed": [
+    "sensitive_data",
+    "sink:exfil"
+  ],
+  "masked_values": [
+    "sk-demo-...MASKED"
+  ],
   "note": "the untrusted_source leg was not observed in this trace, so this is not a trifecta finding: it is the lesser result that sensitive data was observed reaching an outbound sink. It does not claim untrusted content was present.",
-  "path": ["485697cce52b7fa2", "4b85b6426897725d"],
+  "path": [
+    "485697cce52b7fa2",
+    "4b85b6426897725d"
+  ],
   "path_basis": "temporal",
   "path_edges": [
-    {"basis": "temporal", "from": "485697cce52b7fa2", "to": "4b85b6426897725d"}
+    {
+      "basis": "temporal",
+      "from": "485697cce52b7fa2",
+      "to": "4b85b6426897725d"
+    }
   ],
-  "schema_version": "1.0",
-  "scope": "verbatim taint only (SPEC.md §6): a value that was encoded, split, summarized or paraphrased between source and sink does not match, and so would not appear here. Absence of a finding is not evidence of absence of a flow.",
-  "sink": {"event": "4b85b6426897725d", "tool": "notify__send"},
+  "schema_version": "1.1",
+  "scope": "verbatim taint only (SPEC.md \u00a76): a value that was encoded, split, summarized or paraphrased between source and sink does not match, and so would not appear here. Absence of a finding is not evidence of absence of a flow.",
+  "sink": {
+    "event": "4b85b6426897725d",
+    "tool": "notify__send"
+  },
   "summary": "tainted data observed reaching notify__send",
   "tier": "realized"
 }

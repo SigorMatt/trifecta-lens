@@ -19,6 +19,7 @@ Reads local files only — never a network connection (CLAUDE.md invariant 1).
 import base64
 import json
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -110,6 +111,47 @@ def _event_from_span(span: dict[str, Any], line_no: int) -> Event:
     )
 
 
+#: The OpenInference span kind that marks an agent. A tool span's nearest ancestor of
+#: this kind is the agent that ran it (D15).
+_KIND_AGENT = "AGENT"
+
+
+def resolve_agents(events: list[Event]) -> list[Event]:
+    """Attach each event's agent: its nearest ancestor span of kind ``AGENT`` (D15).
+
+    **No new format, no new attribute, no new convention.** The information was already
+    in every trace we load — ``parent_id`` and ``openinference.span.kind`` are both in
+    the six keys we read (``SPEC.md`` §7.3). Nothing had ever looked at them together.
+
+    That omission was not cosmetic. The engine folds a trace carrying **one** taint set
+    and no notion of an agent, so a secret read by agent A and emitted by agent B has
+    **always** fired — while ``SPEC.md`` §8 listed cross-agent multi-hop as out of
+    scope, and the finding printed as though one agent did both. We shipped the
+    capability, denied it, and reported it wrong.
+
+    The agent's identity is the AGENT span's **id** — opaque, and deliberately *not* an
+    inventory context id. The trace and the inventory name agents in different
+    vocabularies; guessing a mapping between them would invent an identity neither
+    artifact carries, which is exactly the mistake D14 was.
+    """
+    by_id = {event.id: event for event in events}
+
+    def agent_of(event: Event) -> str | None:
+        current = event.parent_id
+        seen: set[str] = set()  # a malformed trace may cycle; refuse to hang on it
+        while current is not None and current not in seen:
+            seen.add(current)
+            parent = by_id.get(current)
+            if parent is None:
+                return None
+            if parent.action == _KIND_AGENT:
+                return parent.id
+            current = parent.parent_id
+        return None
+
+    return [replace(event, agent=agent_of(event)) for event in events]
+
+
 def load_trace(path: str | Path) -> list[Event]:
     """Load one JSONL trace fixture into a deterministically ordered Event list.
 
@@ -130,7 +172,7 @@ def load_trace(path: str | Path) -> list[Event]:
             raise MalformedSpanError(f"line {line_no}: span is not a JSON object")
         events.append(_event_from_span(span, line_no))
     events.sort(key=lambda e: (e.ts, e.id))
-    return events
+    return resolve_agents(events)
 
 
 # --- OTLP/JSON front-end (task 2.7) -----------------------------------------
@@ -240,4 +282,4 @@ def load_otlp_trace(path: str | Path) -> list[Event]:
         for i, span in enumerate(_iter_otlp_spans(document), start=1)
     ]
     events.sort(key=lambda e: (e.ts, e.id))
-    return events
+    return resolve_agents(events)

@@ -81,7 +81,7 @@ def test_triage_fixtures_are_silent_because_the_SENSITIVE_LEG_is_absent() -> Non
         assert list(detect_realized(events)) == [], name
 
 
-def test_anchor_is_the_only_fixture_with_a_two_leg_finding() -> None:
+def test_the_fixture_corpus_census_is_pinned() -> None:
     counts = {
         path.name: len(list(detect_realized(label_events(load_trace(path)))))
         for path in sorted(FIXTURES.glob("*.jsonl"))
@@ -100,6 +100,12 @@ def test_anchor_is_the_only_fixture_with_a_two_leg_finding() -> None:
         # hand-authored: real parent_id ancestry through the tools, so its
         # finding reads path_basis=causal rather than temporal (SPEC.md §5)
         "causal_chain.jsonl": 1,
+        # hand-authored (D15): a secret read by one sub-agent and emailed out by
+        # ANOTHER, in one trace. It fires — and always has, because the engine folds
+        # one taint set with no notion of an agent. The finding now names the agents
+        # it crossed; before D15 it printed as though one agent did both, while
+        # SPEC.md §8 denied the capability outright.
+        "cross_agent_handoff.jsonl": 1,
         "demo_realized.jsonl": 1,
         "triage_benign_control.jsonl": 0,
         "triage_refused_sonnet5.jsonl": 0,

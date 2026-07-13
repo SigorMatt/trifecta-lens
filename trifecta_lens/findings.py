@@ -24,7 +24,7 @@ from trifecta_lens.roles import Role
 #: must ignore unknown fields; removing/renaming/retyping is a major bump. The
 #: frozen key sets are enforced by `tests/test_findings_schema.py` against
 #: `schema/findings.schema.json`, so a field cannot move without this moving too.
-SCHEMA_VERSION: Final[str] = "1.0"
+SCHEMA_VERSION: Final[str] = "1.1"
 
 #: The three tiers (SPEC.md §5). Kept explicit so a lower tier can never silently
 #: inherit realized's language or weight (CLAUDE.md invariant 3).
@@ -71,9 +71,15 @@ class Leg:
     tool: str | None
     note: str
     catalog_entry: str = ""
+    #: The AGENT span this leg ran under (``loader.resolve_agents``). ``None`` when the
+    #: trace names no agent above it. Two legs with different agents mean the flow
+    #: CROSSED an agent boundary — a materially different claim, and one this finding
+    #: used to hide (D15).
+    agent: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "agent": self.agent,
             "catalog_entry": self.catalog_entry,
             "event": self.event,
             "note": self.note,
@@ -107,9 +113,25 @@ class Finding:
     #: §6.1). Present on every finding so "what could this even have seen?" is
     #: answerable from the finding alone.
     detected_under: dict[str, Any]
+    #: The distinct AGENT spans this path ran across, in path order (D15). More than
+    #: one means the flow crossed an agent boundary — one agent read the value, another
+    #: sent it. The engine has always detected these (it folds one trace with one taint
+    #: set and no notion of an agent) and the finding never said so.
+    #:
+    #: It matters twice over. It is a bigger claim — and it is the case the REACHABLE
+    #: tier is structurally unable to corroborate, because reachable asks whether ONE
+    #: context holds every leg, and here by definition none does.
+    agents: tuple[str, ...] = ()
+
+    @property
+    def crosses_agents(self) -> bool:
+        """Whether this flow moved between agents (D15)."""
+        return len(self.agents) > 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "agents": list(self.agents),
+            "crosses_agents": self.crosses_agents,
             "detected_under": dict(self.detected_under),
             "family": self.family,
             "legs": [leg.to_dict() for leg in self.legs],

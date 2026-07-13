@@ -526,6 +526,65 @@ produced by the same capture, so the join always held. The bug was reachable onl
 input we had never written — which is the argument for scenario 4 in `USAGE.md` existing at
 all, and for building it from a *real* non-MCP shape rather than a sketch.
 
+## D15 — Cross-agent flow: we already detect it, we denied it, and it broke containment
+
+*Taken 2026-07-13, in answer to "why is cross-agent multi-hop a non-goal — is anything in
+the architecture preventing it?" The answer was: nothing. We were already doing it.*
+
+**The finding.** `SPEC.md` §8 listed cross-agent multi-hop as an explicit non-goal, one that
+*"must never appear in output, docs, or `--help` as current capability."* Instead of trusting
+that, I ran one. **It fires.** The engine folds a trace in time order carrying **one global
+taint set and no notion of an agent at all**, so a secret read by agent A and emailed out by
+agent B — in one trace — has *always* produced a realized finding.
+
+We shipped the capability, denied it in the spec, and reported it wrong. Two consequences,
+and the first is why this was a bug rather than a happy accident:
+
+1. **Containment breaks — the second instance today.** Reachable asks whether **one** agent
+   context holds every leg. In a genuine cross-agent flow, **by definition none does** — that
+   is what makes it cross-agent. So reachable goes silent *exactly* when realized fires:
+   `realized ⊄ reachable`, the guarantee `DESIGN.md` §3 calls *"a structural property of the
+   machine."* Unlike **D14** this is not a naming accident; it falls straight out of the tier
+   definitions, which is worse.
+2. **The finding hid the hop.** The path printed as `r_read -> s_send`, as though one agent
+   did both. A flow that changes hands is a materially bigger claim than one that does not.
+
+**The identity was in the trace the whole time.** A tool span's nearest ancestor of kind
+`AGENT` *is* the agent that ran it, and both `parent_id` and the span kind are already among
+the six OpenInference attributes we read (§7.3). Nothing had ever looked at them together.
+No new format, no new attribute, no new convention — `loader.resolve_agents`.
+
+**Decision (Part 1 — shipped).**
+
+- `Event.agent` — the nearest ancestor `AGENT` span. An **opaque identity**: the engine
+  compares two for equality to see whether a flow changed hands, and never parses one. It is
+  a *span id*, deliberately **not** an inventory context id — the trace and the inventory name
+  agents in different vocabularies, and guessing a mapping is the mistake **D14** was.
+- Findings `1.0 → **1.1**` (additive, a minor bump under §7.1's own policy): `agents`,
+  `crosses_agents`, `legs[].agent`.
+- **The report explains why reachable is silent.** Not as an aside: a reader who compares a
+  REALIZED finding against a silent REACHABLE tier concludes either that the tool contradicts
+  itself, or — far worse — that the silence is reassuring. It is neither. The two tiers are
+  answering different questions and only one of them can see a flow that changes hands.
+- `SPEC.md` §8 corrected. **Cross-*session* / cross-*trace*** (A writes today, B reads
+  tomorrow) remains parked and is a genuinely different problem: different files, taint
+  retention across runs, memory poisoning.
+
+**The line this must not cross.** We observed a value in agent A's span and the same value,
+verbatim, at agent B's sink. We did **not** observe a handoff — no span says *"A passed this
+to B"*, and the value could have reached B by any route. Saying *"one agent handed the secret
+to another"* is exactly the causal claim invariant 4 forbids, dressed up as an architectural
+insight. A test forbids the words.
+
+**Part 2 — delegation edges (not yet built).** Reachable's edge relation is *co-exposure
+within one context*. Modelling cross-agent capability needs a second relation: **can context
+A hand data to context B?** That cannot be inferred from an inventory — the operator declares
+it, as they declare contexts. Per **D1's own precedent**, redefining a Stage-1 edge is *not*
+an automaton change, so it stays inside the invariants; it *is* a `SPEC.md` §5 change. And the
+tier-honesty risk is the whole of it: a cross-agent reachable finding rests on an **extra
+assumption** — that data really does flow across the declared handoff — so it is a **weaker**
+claim than single-context reachable and must never borrow its language.
+
 ---
 
 ## Sequencing

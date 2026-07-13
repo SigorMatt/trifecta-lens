@@ -51,12 +51,20 @@ INVENTORY = FIXTURES / "inventory.json"
 
 # --- The frozen key sets (the canonical lockfile) ---------------------------
 
+# v1.1 (D15) added `agents` / `crosses_agents` / `legs[].agent`. ADDITIVE — a minor
+# bump under SPEC.md §7.1's policy, and consumers that ignore unknown fields are
+# unaffected. The fields exist because the engine has ALWAYS detected a flow that
+# crossed an agent boundary (it folds one trace with one taint set and no notion of an
+# agent) and the finding never said so — while SPEC.md §8 denied it outright.
 REALIZED_KEYS = frozenset({
     "schema_version", "tier", "family", "summary", "note", "scope", "sink",
     "path", "path_edges", "path_basis", "legs", "legs_observed",
     "legs_not_observed", "masked_values", "detected_under",
+    "agents", "crosses_agents",
 })
-REALIZED_LEG_KEYS = frozenset({"role", "event", "tool", "note", "catalog_entry"})
+REALIZED_LEG_KEYS = frozenset({
+    "role", "event", "tool", "note", "catalog_entry", "agent",
+})
 REALIZED_SINK_KEYS = frozenset({"event", "tool"})
 PATH_EDGE_KEYS = frozenset({"from", "to", "basis"})
 DETECTED_UNDER_KEYS = frozenset({"match", "min_value_chars", "normalization"})
@@ -220,6 +228,8 @@ def _is_type(instance: Any, t: str) -> bool:
         return isinstance(instance, list)
     if t == "string":
         return isinstance(instance, str)
+    if t == "boolean":
+        return isinstance(instance, bool)
     if t == "integer":
         return isinstance(instance, int) and not isinstance(instance, bool)
     if t == "null":

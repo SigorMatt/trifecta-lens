@@ -217,6 +217,9 @@ def _leg(role: Role, event: Event) -> Leg:
         tool=event.tool,
         note=label.note if label else "",
         catalog_entry=label.entry if label else "",
+        # An opaque identity, compared for equality only. The engine learns WHETHER the
+        # flow changed hands, never whose hands they were (DESIGN.md §5).
+        agent=event.agent,
     )
 
 
@@ -289,8 +292,17 @@ def _accept(
     )
     observed = {leg.role for leg in legs}
 
+    # The agents this path ran across, in path order, deduplicated. More than one and
+    # the flow CROSSED an agent boundary — which the engine has always detected (one
+    # taint set, no notion of an agent) and the finding never said (D15).
+    agents: list[str] = []
+    for event in path_events:
+        if event.agent is not None and event.agent not in agents:
+            agents.append(event.agent)
+
     return Finding(
         family=family,
+        agents=tuple(agents),
         tier=TIER_REALIZED,
         summary=_summary_for(sink),
         sink_event=sink.id,

@@ -56,6 +56,15 @@ class Event:
     #: so a finding can cite WHY a role was assigned — and WHICH entry to edit —
     #: while the engine stays tool-blind: it reads this keyed by ROLE, never by tool.
     role_labels: dict[str, RoleLabel] = field(default_factory=dict)
+    #: The AGENT span this event ran under — its nearest ancestor of kind ``AGENT``
+    #: (``loader.resolve_agents``). ``None`` when the trace names no agent above it.
+    #:
+    #: The engine treats it as an **opaque identity**: it compares two of them for
+    #: equality to see whether a flow crossed an agent boundary, and never parses one.
+    #: The identity is a *span id*, not an inventory context id — the trace and the
+    #: inventory name agents in different vocabularies, and we do not guess a mapping
+    #: between them (D15).
+    agent: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-compatible dict; roles are sorted so output is deterministic."""

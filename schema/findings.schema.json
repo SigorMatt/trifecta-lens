@@ -2,15 +2,24 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/trifecta-lens/schema/findings.schema.json",
   "title": "trifecta-lens findings NDJSON line (v1)",
-  "description": "One finding per NDJSON line (keys sorted, sort_keys=True). A public, frozen contract (SPEC.md §7.1). Discriminated by `tier`: a realized line carries trace evidence; a capability line (posture/reachable) carries inventory capability and structurally cannot carry realized's evidence keys. Consumers MUST ignore unknown fields; a new optional field is a minor version bump, a removal/rename/retype is a major bump.",
+  "description": "One finding per NDJSON line (keys sorted, sort_keys=True). A public, versioned contract (SPEC.md \u00a77.1). v1.1 adds `agents` / `crosses_agents` / `legs[].agent` \u2014 additive, a minor bump; consumers ignoring unknown fields are unaffected. Discriminated by `tier`: a realized line carries trace evidence; a capability line (posture/reachable) carries inventory capability and structurally cannot carry realized's evidence keys. Consumers MUST ignore unknown fields; a new optional field is a minor version bump, a removal/rename/retype is a major bump.",
   "type": "object",
-  "required": ["schema_version", "tier"],
+  "required": [
+    "schema_version",
+    "tier"
+  ],
   "properties": {
-    "schema_version": { "const": "1.0" }
+    "schema_version": {
+      "const": "1.1"
+    }
   },
   "oneOf": [
-    { "$ref": "#/$defs/realized" },
-    { "$ref": "#/$defs/capability" }
+    {
+      "$ref": "#/$defs/realized"
+    },
+    {
+      "$ref": "#/$defs/capability"
+    }
   ],
   "$defs": {
     "realized": {
@@ -18,68 +27,195 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version", "tier", "family", "summary", "note", "scope",
-        "sink", "path", "path_edges", "path_basis", "legs",
-        "legs_observed", "legs_not_observed", "masked_values", "detected_under"
+        "schema_version",
+        "tier",
+        "family",
+        "summary",
+        "note",
+        "scope",
+        "sink",
+        "path",
+        "path_edges",
+        "path_basis",
+        "legs",
+        "legs_observed",
+        "legs_not_observed",
+        "masked_values",
+        "detected_under",
+        "agents",
+        "crosses_agents"
       ],
       "properties": {
-        "schema_version": { "const": "1.0" },
-        "tier": { "const": "realized" },
-        "family": { "type": "string" },
-        "summary": { "type": "string" },
-        "note": { "type": "string" },
-        "scope": { "type": "string" },
+        "schema_version": {
+          "const": "1.1"
+        },
+        "tier": {
+          "const": "realized"
+        },
+        "family": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
         "sink": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["event", "tool"],
+          "required": [
+            "event",
+            "tool"
+          ],
           "properties": {
-            "event": { "type": "string" },
-            "tool": { "type": ["string", "null"] }
+            "event": {
+              "type": "string"
+            },
+            "tool": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         },
-        "path": { "type": "array", "items": { "type": "string" } },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "path_edges": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["from", "to", "basis"],
+            "required": [
+              "from",
+              "to",
+              "basis"
+            ],
             "properties": {
-              "from": { "type": "string" },
-              "to": { "type": "string" },
-              "basis": { "enum": ["causal", "temporal", "mixed"] }
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "basis": {
+                "enum": [
+                  "causal",
+                  "temporal",
+                  "mixed"
+                ]
+              }
             }
           }
         },
-        "path_basis": { "enum": ["causal", "temporal", "mixed"] },
+        "path_basis": {
+          "enum": [
+            "causal",
+            "temporal",
+            "mixed"
+          ]
+        },
         "legs": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["role", "event", "tool", "note", "catalog_entry"],
+            "required": [
+              "role",
+              "event",
+              "tool",
+              "note",
+              "catalog_entry",
+              "agent"
+            ],
             "properties": {
-              "role": { "type": "string" },
-              "event": { "type": "string" },
-              "tool": { "type": ["string", "null"] },
-              "note": { "type": "string" },
-              "catalog_entry": { "type": "string" }
+              "role": {
+                "type": "string"
+              },
+              "event": {
+                "type": "string"
+              },
+              "tool": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "catalog_entry": {
+                "type": "string"
+              },
+              "agent": {
+                "description": "The AGENT span this leg ran under; null when the trace names no agent above it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
             }
           }
         },
-        "legs_observed": { "type": "array", "items": { "type": "string" } },
-        "legs_not_observed": { "type": "array", "items": { "type": "string" } },
-        "masked_values": { "type": "array", "items": { "type": "string" } },
+        "legs_observed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "legs_not_observed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "masked_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "detected_under": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["match", "min_value_chars", "normalization"],
+          "required": [
+            "match",
+            "min_value_chars",
+            "normalization"
+          ],
           "properties": {
-            "match": { "type": "string" },
-            "min_value_chars": { "type": "integer" },
-            "normalization": { "type": "array", "items": { "type": "string" } }
+            "match": {
+              "type": "string"
+            },
+            "min_value_chars": {
+              "type": "integer"
+            },
+            "normalization": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
+        },
+        "agents": {
+          "description": "The distinct AGENT spans this path ran across, in path order (D15). More than one means the flow CROSSED an agent boundary \u2014 one agent read the value, another sent it. These are span ids from the trace, NOT inventory context ids: the two artifacts name agents in different vocabularies and we do not guess a mapping.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "crosses_agents": {
+          "description": "True when `agents` holds more than one. A cross-agent flow is the case the REACHABLE tier is structurally unable to corroborate \u2014 it asks whether a SINGLE context holds every leg, and here none does \u2014 so reachable's silence must not be read as a contradiction, or as reassurance.",
+          "type": "boolean"
         }
       }
     },
@@ -88,31 +224,67 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version", "tier", "family", "summary", "note", "scope",
-        "sink", "context", "legs", "legs_present", "legs_absent", "disclosure"
+        "schema_version",
+        "tier",
+        "family",
+        "summary",
+        "note",
+        "scope",
+        "sink",
+        "context",
+        "legs",
+        "legs_present",
+        "legs_absent",
+        "disclosure"
       ],
       "properties": {
-        "schema_version": { "const": "1.0" },
-        "tier": { "enum": ["posture", "reachable"] },
-        "family": { "type": "string" },
-        "summary": { "type": "string" },
-        "note": { "type": "string" },
-        "scope": { "type": "string" },
+        "schema_version": {
+          "const": "1.1"
+        },
+        "tier": {
+          "enum": [
+            "posture",
+            "reachable"
+          ]
+        },
+        "family": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
         "sink": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["tool"],
+          "required": [
+            "tool"
+          ],
           "properties": {
-            "tool": { "type": "string" }
+            "tool": {
+              "type": "string"
+            }
           }
         },
         "context": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "provenance"],
+          "required": [
+            "id",
+            "provenance"
+          ],
           "properties": {
-            "id": { "type": "string" },
-            "provenance": { "type": "string" }
+            "id": {
+              "type": "string"
+            },
+            "provenance": {
+              "type": "string"
+            }
           }
         },
         "legs": {
@@ -120,28 +292,55 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["role", "tools"],
+            "required": [
+              "role",
+              "tools"
+            ],
             "properties": {
-              "role": { "type": "string" },
+              "role": {
+                "type": "string"
+              },
               "tools": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["tool", "note", "catalog_entry"],
+                  "required": [
+                    "tool",
+                    "note",
+                    "catalog_entry"
+                  ],
                   "properties": {
-                    "tool": { "type": "string" },
-                    "note": { "type": "string" },
-                    "catalog_entry": { "type": "string" }
+                    "tool": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "catalog_entry": {
+                      "type": "string"
+                    }
                   }
                 }
               }
             }
           }
         },
-        "legs_present": { "type": "array", "items": { "type": "string" } },
-        "legs_absent": { "type": "array", "items": { "type": "string" } },
-        "disclosure": { "type": "string" }
+        "legs_present": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "legs_absent": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disclosure": {
+          "type": "string"
+        }
       }
     }
   }

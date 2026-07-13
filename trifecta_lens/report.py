@@ -209,6 +209,23 @@ def _rule(label: str) -> list[str]:
     return ["", f"--- {label} " + "-" * max(0, 66 - len(label)), ""]
 
 
+#: A cross-agent flow is a BIGGER claim than a single-agent one, and it is the case
+#: the reachable tier is structurally unable to corroborate: reachable asks whether ONE
+#: agent context holds every leg, and in a cross-agent flow, by definition, none does.
+#: So reachable goes silent exactly when this fires — and a reader comparing the two
+#: tiers would read that silence as a contradiction, or worse, as reassurance.
+#:
+#: It is not a contradiction. It is the two tiers answering different questions, and the
+#: report has to say so where the reader meets it (D15).
+_CROSSES_AGENTS: Final[str] = (
+    "This flow CROSSED AN AGENT BOUNDARY: one agent read the value, another sent it. "
+    "REACHABLE cannot corroborate this, and its silence is not a contradiction — it "
+    "asks whether a SINGLE agent context holds every leg, and here, by definition, "
+    "none does. Do not read that silence as reassurance. (Declaring the handoffs "
+    "between your agents is what lets reachable model this — USAGE.md.)"
+)
+
+
 def _format_realized(finding: Finding) -> list[str]:
     badge = _FAMILY_BADGE.get(finding.family, "")
     lines = [
@@ -219,6 +236,14 @@ def _format_realized(finding: Finding) -> list[str]:
         + " -> ".join(f"{leg.event} ({leg.tool}, {leg.role})" for leg in finding.legs),
         "  basis  " + _BASIS_MEANING.get(finding.path_basis, finding.path_basis),
         "  value  " + ", ".join(finding.masked_values),
+    ]
+    if finding.crosses_agents:
+        lines += [
+            "  agents " + " -> ".join(finding.agents),
+            "",
+            f"  {_CROSSES_AGENTS}",
+        ]
+    lines += [
         "",
         "  legs observed:",
     ]

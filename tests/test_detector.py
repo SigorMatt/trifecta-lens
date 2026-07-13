@@ -125,8 +125,13 @@ def test_finding_cites_why_each_role_was_assigned() -> None:
     the catalog entry id, so a user can both judge the call and go change it."""
     (finding,) = _findings(ANCHOR)
     legs = finding["legs"]
+    # `agent` is the AGENT span each leg ran under (D15). Both legs here ran under the
+    # SAME agent — this anchor is a single-agent run — so the finding does not claim a
+    # crossing. That is checked explicitly below, because a false "crosses agents" would
+    # be a bigger overclaim than the one it fixes.
     assert legs == [
         {
+            "agent": "s0",
             "catalog_entry": "vault.secret",
             "event": "s3",
             "note": "reads a credential from the secret store",
@@ -134,6 +139,7 @@ def test_finding_cites_why_each_role_was_assigned() -> None:
             "tool": "vault",
         },
         {
+            "agent": "s0",
             "catalog_entry": "webhook.post",
             "event": "s4",
             "note": "sends a payload to an outbound HTTP endpoint",
@@ -141,6 +147,8 @@ def test_finding_cites_why_each_role_was_assigned() -> None:
             "tool": "webhook",
         },
     ]
+    assert finding["agents"] == ["s0"]
+    assert finding["crosses_agents"] is False
 
 
 # --- NDJSON append-stream (DESIGN.md §6) -------------------------------------

@@ -510,7 +510,18 @@ trifecta-lens --trace <spans.jsonl>            # realized only (no inventory)
 ## 8. Explicit non-goals (parked — do not claim support)
 
 - Transformed taint (encoding, splitting, paraphrase).
-- Cross-agent multi-hop (source → memory → second agent → sink).
+- **Cross-*session* / cross-*trace* multi-hop** (agent A writes to a store today, agent B
+  reads it tomorrow). Different files, taint retention across runs, memory poisoning —
+  a genuinely different problem, and still parked.
+
+  > **Cross-agent multi-hop WITHIN ONE TRACE is detected, and this section used to deny
+  > it** (`DECISIONS.md` D15). The engine folds one trace carrying one taint set and no
+  > notion of an agent, so a value read by agent A and observed at agent B's sink has
+  > always accepted. The finding now names the agents it crossed (`agents`,
+  > `crosses_agents`) and states that the **reachable** tier is structurally unable to
+  > corroborate it — reachable asks whether *one* context holds every leg, and in a
+  > cross-agent flow none does. Detecting a flow and denying we detect it is an honesty
+  > failure pointed the unusual way; it is still one.
 - Memory-poisoning affecting *future* sessions; cross-session state.
 - Any causal proof that untrusted content drove an action.
 - Live/streaming mode (consuming spans as agents run). North-star direction

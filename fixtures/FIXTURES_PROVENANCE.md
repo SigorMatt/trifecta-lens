@@ -162,3 +162,16 @@ usage/nonmcp_catalog.yaml
         These fixtures are also what FOUND D14: written with a fake `local__`
         server (the only shape the loader then allowed), they produced a realized
         trifecta over a reachable two-leg — containment violated, silently.
+
+cross_agent_handoff.jsonl
+  authored: BY HAND (task 3.14 / D15). NOT a capture.
+  shape: ONE trace, THREE agents — an orchestrator spawning a `reader` sub-agent
+         (which reads a secret) and a `sender` sub-agent (which emails it out).
+         Neither sub-agent holds both legs; that is what makes it cross-agent.
+  role: the fixture that shows what the engine has ALWAYS done and never said.
+        It folds one trace with one global taint set and no notion of an agent, so
+        this flow has always produced a realized finding — while SPEC.md §8 listed
+        cross-agent multi-hop as an explicit non-goal. It also pins the containment
+        fix: reachable is SILENT here (no single context holds both legs), and the
+        report must explain that silence rather than let a reader read it as a
+        contradiction or as reassurance.
