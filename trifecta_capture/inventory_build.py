@@ -32,12 +32,30 @@ class CaptureConfigError(ValueError):
 
 @dataclass(frozen=True)
 class ServerSpec:
-    """How to launch one MCP server over stdio — verbatim from the host config."""
+    """One server we can get a tool list from — by launching it, or by being handed one.
+
+    Exactly one of the two is set. ``command`` means *we launch it over stdio and ask*.
+    ``tools_list_path`` means *the operator already has the answer* — from a remote or
+    hosted server we cannot launch, obtained by whatever means their stack allows — and
+    we read it from a file (``DECISIONS.md`` D11).
+
+    Both are captures. Neither is a fabrication. What distinguishes them is not who
+    typed the command but whether the tool list came from a **real running server** —
+    and the only thing that separates them *for us* is what we may honestly say in the
+    provenance note, which is why the distinction is carried in the type rather than
+    flattened away.
+    """
 
     id: str
-    command: str
+    command: str | None
     args: tuple[str, ...]
     env: dict[str, str] | None
+    tools_list_path: str | None = None
+
+    @property
+    def launchable(self) -> bool:
+        """True when we obtain the tool list ourselves, over stdio."""
+        return self.command is not None
 
 
 @dataclass(frozen=True)
@@ -78,8 +96,16 @@ def load_host_config(path: str | Path) -> dict[str, ServerSpec]:
         command = spec.get("command")
         if not isinstance(command, str) or not command:
             raise CaptureConfigError(
-                f"{p}: server {name!r} has no 'command'. Only stdio servers can be "
-                "captured today; a remote/SSE server has no command to launch."
+                f"{p}: server {name!r} has no 'command', so it cannot be launched — "
+                "trifecta-capture speaks stdio, and a remote or hosted server has no "
+                "command to run.\n"
+                "That is not a dead end. Get its tools/list response however your "
+                "stack allows (curl, a client script, the host's own API) and hand us "
+                f"the JSON:\n"
+                f"    trifecta-capture --from-tools-list {name}=tools.json ...\n"
+                "A tool list obtained from a real running server is a capture, whoever "
+                "fetched it (DECISIONS.md D11). Servers you CAN launch may stay in "
+                "--config; the two mix freely."
             )
         if NAMESPACE_SEP in name:
             raise CaptureConfigError(
@@ -96,6 +122,104 @@ def load_host_config(path: str | Path) -> dict[str, ServerSpec]:
             id=name, command=command, args=tuple(args), env=env
         )
     return servers
+
+
+def parse_tools_list(raw: Any, *, server: str, source: str) -> list[dict[str, Any]]:
+    """Parse a ``tools/list`` response the operator obtained themselves (D11).
+
+    We accept the shapes a real operator will actually be holding, because we do not
+    control how they got it and there is no honesty at stake in the envelope:
+
+    - the JSON-RPC result itself — ``{"tools": [...]}``,
+    - the whole JSON-RPC response — ``{"result": {"tools": [...]}}``,
+    - a bare list of tool objects — ``[...]``.
+
+    Anything else fails loudly. We will not dig a tool list out of a shape we do not
+    recognise: guessing wrong here would put a tool in the inventory that no server
+    listed, which is the one thing that must never happen.
+    """
+    if isinstance(raw, dict):
+        body = raw.get("result", raw)
+        tools = body.get("tools") if isinstance(body, dict) else None
+    elif isinstance(raw, list):
+        tools = raw
+    else:
+        tools = None
+
+    if not isinstance(tools, list):
+        raise CaptureConfigError(
+            f"{source}: not a tools/list response for server {server!r}. Expected "
+            '{"tools": [...]}, a full JSON-RPC {"result": {"tools": [...]}}, or a bare '
+            "list of tool objects."
+        )
+
+    parsed: list[dict[str, Any]] = []
+    for entry in tools:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            raise CaptureConfigError(
+                f"{source}: server {server!r} has a tool entry with no string 'name'. "
+                "The name is the tool's identity; without it there is nothing to "
+                "record."
+            )
+        parsed.append(entry)
+    return parsed
+
+
+def load_tools_list(path: str | Path, *, server: str) -> list[dict[str, Any]]:
+    """Read and parse one operator-supplied ``tools/list`` response from a file."""
+    p = Path(path)
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise CaptureConfigError(f"{p}: no such file (--from-tools-list)") from exc
+    except json.JSONDecodeError as exc:
+        raise CaptureConfigError(f"{p}: invalid JSON: {exc}") from exc
+    return parse_tools_list(raw, server=server, source=str(p))
+
+
+def supplied_servers(declared: list[str]) -> dict[str, ServerSpec]:
+    """Turn ``--from-tools-list <server>=<file>`` declarations into server specs."""
+    servers: dict[str, ServerSpec] = {}
+    for decl in declared:
+        server_id, sep, path = decl.partition("=")
+        server_id = server_id.strip()
+        path = path.strip()
+        if not sep or not server_id or not path:
+            raise CaptureConfigError(
+                f"--from-tools-list {decl!r} must be of the form <server>=<file.json>"
+            )
+        if NAMESPACE_SEP in server_id:
+            raise CaptureConfigError(
+                f"server id {server_id!r} contains {NAMESPACE_SEP!r}; the qualified "
+                f"tool name <server>{NAMESPACE_SEP}<tool> would be ambiguous."
+            )
+        if server_id in servers:
+            raise CaptureConfigError(
+                f"--from-tools-list given twice for server {server_id!r}"
+            )
+        servers[server_id] = ServerSpec(
+            id=server_id, command=None, args=(), env=None, tools_list_path=path
+        )
+    return servers
+
+
+def merge_servers(
+    launchable: dict[str, ServerSpec], supplied: dict[str, ServerSpec]
+) -> dict[str, ServerSpec]:
+    """Known servers = the ones we launch + the ones we were handed. They mix freely.
+
+    A server named in *both* is ambiguous — we would not know whether the inventory
+    records what the server said when we asked it or what the operator's file says, and
+    those can differ. Fail rather than pick one.
+    """
+    clash = sorted(set(launchable) & set(supplied))
+    if clash:
+        raise CaptureConfigError(
+            f"server(s) {clash} are both launchable from the config and supplied via "
+            "--from-tools-list. Pick one source per server: we will not silently "
+            "prefer a file over the server itself, or the reverse."
+        )
+    return {**launchable, **supplied}
 
 
 def resolve_contexts(
@@ -165,35 +289,75 @@ NO_NOTE = (
 )
 
 
-def provenance_for(context: ContextSpec, config_path: str) -> str:
+#: True of the artifact however its tool lists were obtained (``DECISIONS.md`` D2).
+EFFECTIVE_SET_ONLY = (
+    "The inventory records the effective tool set, not the cause of it — an allowlist, "
+    "a deny list and a smaller server loadout all look identical here."
+)
+
+
+def provenance_for(
+    context: ContextSpec,
+    servers: dict[str, ServerSpec],
+    config_path: str | None = None,
+) -> str:
     """The context's provenance note: the operator's words, then ours, separated.
 
-    We never write prose in the operator's voice. Their note (if any) comes first
-    and is theirs; the method sentence is ours and describes only what the machine
-    did (``DECISIONS.md`` D2).
+    We never write prose in the operator's voice. Their note (if any) comes first and
+    is theirs; the method sentence is ours and describes only what the machine did
+    (``DECISIONS.md`` D2).
+
+    **And it describes what the machine did PER SERVER.** A context can mix servers we
+    launched with servers whose ``tools/list`` the operator handed us (D11), and those
+    are not the same claim. Saying "launched over stdio and recorded verbatim" about a
+    file someone gave us would be a fabrication of exactly the kind this project exists
+    not to commit — small, invisible, and in the one field a reader consults to decide
+    whether to believe the rest. So the two get different sentences, and the supplied
+    one says plainly that we did not launch the server and cannot attest to how its
+    response was obtained.
     """
-    method = (
-        f"Captured by trifecta-capture from {config_path}: the servers exposed to "
-        "this context were launched over stdio and their tools/list responses "
-        "recorded verbatim. No model and no credentials are involved. The "
-        "inventory records the effective tool set, not the cause of it — an "
-        "allowlist, a deny list and a smaller server loadout all look identical "
-        "here."
-    )
-    return f"{context.note or NO_NOTE} {method}"
+    launched = sorted(s for s in context.servers if servers[s].launchable)
+    supplied = sorted(s for s in context.servers if not servers[s].launchable)
+
+    method: list[str] = []
+    if launched:
+        method.append(
+            f"Captured by trifecta-capture from {config_path}: "
+            f"{', '.join(launched)} were launched over stdio and their tools/list "
+            "responses recorded verbatim. No model and no credentials are involved."
+        )
+    if supplied:
+        sources = ", ".join(
+            f"{s} from {servers[s].tools_list_path}" for s in supplied
+        )
+        was = "was" if len(supplied) == 1 else "were"
+        method.append(
+            f"The tools for {', '.join(supplied)} {was} supplied by the operator as a "
+            f"tools/list response ({sources}). trifecta-capture did NOT launch "
+            f"{'that server' if len(supplied) == 1 else 'those servers'} and cannot "
+            "attest to how the response was obtained — only that it recorded the "
+            "entries verbatim, and invented none."
+        )
+    method.append(EFFECTIVE_SET_ONLY)
+    return " ".join([context.note or NO_NOTE, *method])
 
 
 def build_inventory(
     contexts: tuple[ContextSpec, ...],
     listed: dict[str, list[dict[str, Any]]],
-    config_path: str,
+    servers: dict[str, ServerSpec],
+    config_path: str | None = None,
 ) -> dict[str, Any]:
-    """Assemble the inventory artifact (``DECISIONS.md`` D2's shape).
+    """Assemble the inventory artifact (``DECISIONS.md`` D2's shape, ``SPEC.md`` §7.2).
 
-    ``listed`` maps a server id to its ``tools/list`` entries, verbatim. Tools are
-    recorded per context — the same tool appears in every context exposed to its
-    server, which is what makes posture (the union) and reachable (per context)
-    two different questions over one artifact.
+    ``listed`` maps a server id to its ``tools/list`` entries, verbatim — whether we
+    got them by launching the server or by reading the operator's file. Tools are
+    recorded per context: the same tool appears in every context exposed to its server,
+    which is what makes posture (the union) and reachable (per context) two different
+    questions over one artifact.
+
+    ``servers`` is here only so the provenance note can say, per server, which of those
+    two happened.
     """
     out_contexts: list[dict[str, Any]] = []
     for context in contexts:
@@ -209,7 +373,7 @@ def build_inventory(
         out_contexts.append(
             {
                 "id": context.id,
-                "provenance": provenance_for(context, config_path),
+                "provenance": provenance_for(context, servers, config_path),
                 "servers": list(context.servers),
                 "tools": tools,
             }

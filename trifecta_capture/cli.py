@@ -30,7 +30,10 @@ from trifecta_capture.inventory_build import (
     ServerSpec,
     build_inventory,
     load_host_config,
+    load_tools_list,
+    merge_servers,
     resolve_contexts,
+    supplied_servers,
 )
 
 _MISSING_SDK = (
@@ -43,6 +46,11 @@ _MISSING_SDK = (
 
 async def _list_tools(server: ServerSpec) -> list[dict[str, Any]]:
     """Launch one server over stdio and record its ``tools/list`` entries."""
+    if server.command is None:  # pragma: no cover - _capture never routes one here
+        raise CaptureConfigError(
+            f"server {server.id!r} has no command to launch; its tools must come from "
+            "--from-tools-list."
+        )
     try:
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
@@ -67,12 +75,29 @@ async def _list_tools(server: ServerSpec) -> list[dict[str, Any]]:
 async def _capture(
     servers: dict[str, ServerSpec], contexts: tuple[ContextSpec, ...]
 ) -> dict[str, list[dict[str, Any]]]:
-    """List tools once per server that some context is exposed to."""
+    """Get a tool list once per server that some context is exposed to.
+
+    Two sources, and the operator is told which is which as it happens: we launch the
+    stdio servers ourselves, and we read the ones they handed us (``DECISIONS.md`` D11).
+    Both are captures; only one of them is ours to attest to.
+    """
     needed = sorted({s for context in contexts for s in context.servers})
     listed: dict[str, list[dict[str, Any]]] = {}
     for server_id in needed:
-        print(f"  listing tools: {server_id} ...", file=sys.stderr)
-        listed[server_id] = await _list_tools(servers[server_id])
+        server = servers[server_id]
+        if server.launchable:
+            print(f"  listing tools: {server_id} (launching) ...", file=sys.stderr)
+            listed[server_id] = await _list_tools(server)
+        else:
+            assert server.tools_list_path is not None
+            print(
+                f"  reading tools: {server_id} <- {server.tools_list_path} "
+                "(supplied; not launched)",
+                file=sys.stderr,
+            )
+            listed[server_id] = load_tools_list(
+                server.tools_list_path, server=server_id
+            )
     return listed
 
 
@@ -81,8 +106,10 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="trifecta-capture",
         description=(
             "Capture an MCP tool inventory for trifecta-lens: launches each "
-            "configured server over stdio, asks it for its tools, and writes the "
-            "inventory JSON. Lists capability; calls no tool."
+            "configured stdio server, asks it for its tools, and writes the inventory "
+            "JSON. Lists capability; calls no tool. For servers it cannot launch "
+            "(remote, hosted), hand it their tools/list response with "
+            "--from-tools-list — that is a capture too."
         ),
         epilog=(
             "One agent context per --context. With none declared, the whole config "
@@ -94,8 +121,24 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        required=True,
-        help="the MCP host config to read (.mcp.json, claude_desktop_config.json)",
+        help=(
+            "the MCP host config to read (.mcp.json, claude_desktop_config.json). "
+            "Its servers are launched over stdio and asked for their tools. Optional "
+            "if every server is supplied with --from-tools-list."
+        ),
+    )
+    parser.add_argument(
+        "--from-tools-list",
+        action="append",
+        default=[],
+        metavar="SERVER=FILE.json",
+        help=(
+            "use a tools/list response you already have, instead of launching the "
+            "server (repeatable). This is the path for remote/hosted servers, which "
+            "have no command to launch: fetch their tools/list however your stack "
+            "allows and hand us the JSON. A tool list from a real running server is a "
+            "capture whoever fetched it. Mixes freely with --config."
+        ),
     )
     parser.add_argument(
         "--out",
@@ -136,7 +179,14 @@ def _notes(raw: list[str]) -> dict[str, str]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
-        servers = load_host_config(args.config)
+        if args.config is None and not args.from_tools_list:
+            raise CaptureConfigError(
+                "nothing to capture: give --config (servers we launch over stdio), "
+                "--from-tools-list (a tools/list response you already have), or both."
+            )
+        launchable = load_host_config(args.config) if args.config else {}
+        supplied = supplied_servers(list(args.from_tools_list))
+        servers = merge_servers(launchable, supplied)
         notes = _notes(list(args.note))
         contexts = resolve_contexts(servers, list(args.context), notes)
         if len(contexts) == 1:
@@ -148,7 +198,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
         listed = asyncio.run(_capture(servers, contexts))
-        inventory = build_inventory(contexts, listed, config_path=str(args.config))
+        inventory = build_inventory(
+            contexts,
+            listed,
+            servers,
+            config_path=str(args.config) if args.config else None,
+        )
     except CaptureConfigError as exc:
         print(f"trifecta-capture: {exc}", file=sys.stderr)
         return 2
