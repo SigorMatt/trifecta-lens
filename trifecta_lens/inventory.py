@@ -35,14 +35,28 @@ class InvalidInventoryError(ValueError):
 
 @dataclass(frozen=True)
 class ToolRef:
-    """One exposed tool: the server that serves it and its bare name."""
+    """One exposed tool: its name, and the server that serves it **if there is one**.
 
-    server: str
+    ``server`` is **optional**, and that is what makes a non-MCP agent a first-class
+    input (``DECISIONS.md`` D14). Qualification exists for one reason: under MCP two
+    servers may each expose a ``read``, so identity must carry the server. An agent
+    whose tools are local functions has **no servers** and a flat name space — and
+    forcing a fake one on it (``local__send_email``) invents an identity its trace does
+    not carry, breaking the composability join by construction, which is precisely how a
+    realized trifecta once out-ran a reachable two-leg in the same report.
+
+    So: a tool's identity is its qualified name when a server serves it, and its bare
+    name when nothing does. Either way it is the name the trace must also carry.
+    """
+
     name: str
+    server: str | None = None
 
     @property
     def qualified(self) -> str:
-        """``<server>__<tool>`` — the name the trace also carries."""
+        """The tool's identity — the name the trace carries too (``SPEC.md`` §7.2)."""
+        if self.server is None:
+            return self.name
         return f"{self.server}{NAMESPACE_SEP}{self.name}"
 
 
@@ -86,29 +100,36 @@ class Inventory:
 
 
 def _tool_ref(entry: Any, *, context_id: str) -> ToolRef:
-    """Parse one inventory tool entry ``{"server", "tool": {"name", ...}}``."""
+    """Parse one tool entry ``{"tool": {"name", ...}, "server"?}``.
+
+    ``server`` is optional: omit it when the agent has no servers (a non-MCP stack whose
+    tools are local functions), and the tool's identity is its bare name — which is what
+    such a trace carries (D14).
+    """
     if not isinstance(entry, dict):
         raise InvalidInventoryError(
             f"context {context_id!r}: tool entry is not an object"
         )
     server = entry.get("server")
     tool = entry.get("tool")
-    if not isinstance(server, str) or not server:
-        raise InvalidInventoryError(
-            f"context {context_id!r}: tool entry missing a string 'server'"
-        )
     if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
         raise InvalidInventoryError(
             f"context {context_id!r}: tool entry missing a verbatim "
             "'tool' object with a string 'name'"
         )
-    if NAMESPACE_SEP in server:
+    if server is not None and (not isinstance(server, str) or not server):
+        raise InvalidInventoryError(
+            f"context {context_id!r}: 'server' must be a non-empty string when "
+            "present. Omit it entirely if this agent has no servers — then the tool's "
+            "identity is its bare name, which is what a non-MCP trace carries."
+        )
+    if isinstance(server, str) and NAMESPACE_SEP in server:
         raise InvalidInventoryError(
             f"context {context_id!r}: server id {server!r} contains the "
             f"namespace separator {NAMESPACE_SEP!r}; the qualified name would be "
             "ambiguous"
         )
-    return ToolRef(server=server, name=tool["name"])
+    return ToolRef(name=tool["name"], server=server)
 
 
 def _context(entry: Any) -> Context:

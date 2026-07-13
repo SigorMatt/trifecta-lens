@@ -131,3 +131,34 @@ benign_source_echo_no_secret.jsonl
         alone is not a v1 exfil finding (no family accepts on it). Mechanism: the
         sensitive leg is required. (This is a v1 scope statement, not a claim
         that echoing untrusted content outbound is always safe.)
+
+---
+
+## usage/ — the worked scenarios in USAGE.md (task 3.13)
+
+usage/nonmcp_trace.jsonl
+usage/nonmcp_inventory.json
+usage/nonmcp_catalog.yaml
+  authored: BY HAND (task 3.13). NOT a capture, and never to be described as one.
+            We hold no captured trace or inventory from a non-MCP agent, and we
+            will not manufacture one.
+  shape: a NON-MCP agent — its tools are ordinary local functions, so there are no
+         servers, no tools/list, and nothing for `trifecta-capture` to launch. The
+         inventory therefore omits `server` entirely and identifies tools by their
+         bare names, which is exactly what such an agent's trace emits (D14).
+         fetch (a support ticket off the web) -> crm_lookup (a customer record) ->
+         send_email (the record, verbatim, in the body).
+  role: USAGE.md scenario 4, and the executable proof that a non-MCP stack is a
+        first-class input. It also carries the teaching arc the coverage work
+        (D13) exists for: under the SHIPPED catalog the run finds NOTHING, because
+        `crm_lookup` matches no entry and the exfil family needs a sensitive leg.
+        The COVERAGE section names the tool it had no opinion about. ONE overlay
+        entry (usage/nonmcp_catalog.yaml) turns the same two files into a realized
+        exfil_trifecta — with the engine unmodified.
+
+        `list_files` is deliberately left unlabeled: it returns names, not content
+        (SPEC.md §4).
+
+        These fixtures are also what FOUND D14: written with a fake `local__`
+        server (the only shape the loader then allowed), they produced a realized
+        trifecta over a reachable two-leg — containment violated, silently.

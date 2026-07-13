@@ -75,8 +75,8 @@ def test_the_validator_rejects_an_inventory_that_violates_the_contract() -> None
     assert _validate(no_contexts, schema, schema)
 
     doc = _captured()
-    del doc["contexts"][0]["tools"][0]["server"]
-    assert _validate(doc, schema, schema), "a tool entry with no server passed"
+    del doc["contexts"][0]["tools"][0]["tool"]
+    assert _validate(doc, schema, schema), "a tool entry with no tool object passed"
 
     doc = _captured()
     del doc["contexts"][0]["tools"][0]["tool"]["name"]
@@ -92,10 +92,13 @@ def test_every_key_the_schema_requires_is_a_key_the_loader_enforces(
     tmp_path: Path,
 ) -> None:
     """Drop each required key in turn; the loader must reject the result."""
+    # NOTE `server` is deliberately NOT here: it is OPTIONAL (D14). A non-MCP agent has
+    # no servers, its trace emits bare tool names, and forcing a fake server on it would
+    # invent an identity the trace does not carry — which broke the composability join
+    # by construction. Omitting `server` is the supported non-MCP shape, not a defect.
     cases: list[tuple[str, list[str | int]]] = [
         ("contexts", ["contexts"]),
         ("context id", ["contexts", 0, "id"]),
-        ("tool entry server", ["contexts", 0, "tools", 0, "server"]),
         ("tool entry tool", ["contexts", 0, "tools", 0, "tool"]),
         ("tool name", ["contexts", 0, "tools", 0, "tool", "name"]),
     ]

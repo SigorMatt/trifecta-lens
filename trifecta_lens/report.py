@@ -28,6 +28,7 @@ from trifecta_lens.findings import (
     CapabilityFinding,
     Finding,
 )
+from trifecta_lens.join import Join
 from trifecta_lens.model import Event
 
 _HEADER: Final[str] = "trifecta-lens"
@@ -105,6 +106,47 @@ _COVERAGE_COMPLETE: Final[str] = (
     "stack rather than a limit of our labeling."
 )
 
+# --- The join: do the two artifacts describe ONE system? --------------------------
+#
+# realized ⊆ reachable ⊆ posture holds BY CONSTRUCTION — but only for a trace and an
+# inventory that share a tool name space. Nothing checked that at runtime, and a non-MCP
+# user whose trace says `fetch` while their inventory says `local__fetch` got a REALIZED
+# trifecta and a REACHABLE two-leg in the same report: containment violated, silently,
+# in the one place this project calls it structural (DESIGN.md §3, D14).
+#
+# We disclose; we do not repair. Guessing that `fetch` and `local__fetch` are the same
+# tool would put a tool in a finding that no artifact named.
+
+_JOIN_DISJOINT: Final[str] = (
+    "THE TRACE AND THE INVENTORY SHARE NO TOOL NAMES AT ALL. Every tier below is "
+    "computed, but they are NOT describing one system, and realized ⊆ reachable does "
+    "NOT hold between them — compare them at your own risk. This is usually a "
+    "name-space mismatch rather than two unrelated systems: a bare 'fetch' in the "
+    "trace against a qualified 'local__fetch' in the inventory. Make the two agree "
+    "(USAGE.md), then re-run."
+)
+_JOIN_UNLISTED: Final[str] = (
+    "The trace called tool(s) the inventory does not list. A run can only call a tool "
+    "its agent is exposed to, so one of two things is true and we cannot tell which: "
+    "the inventory is incomplete, or the two artifacts use different names for the "
+    "same tools. Until they agree, realized ⊆ reachable is not guaranteed."
+)
+
+
+def _join_section(join: Join | None) -> list[str]:
+    """Printed only when the join FAILS. A holding join needs no words."""
+    if join is None or not join.applicable or join.holds:
+        return []
+
+    lines = _rule("JOIN — READ THIS FIRST")
+    lines.append(_JOIN_DISJOINT if join.disjoint else _JOIN_UNLISTED)
+    lines += ["", "  called by the trace, absent from the inventory:"]
+    lines += [f"    {name}" for name in join.unlisted]
+    lines += ["", "  the inventory exposes:"]
+    lines += [f"    {name}" for name in join.exposed]
+    lines.append("")
+    return lines
+
 
 #: What each basis MEANS, spelled out. Printing the bare word "temporal" would be
 #: a label, not a disclosure (DECISIONS.md D5).
@@ -146,6 +188,9 @@ class TierResults:
     reachable: tuple[CapabilityFinding, ...] | None = None
     posture: tuple[CapabilityFinding, ...] | None = None
     collapse: ReachableCollapse | None = None
+    #: Whether the trace and the inventory describe ONE system (D8/D14). ``None`` when
+    #: only one of them was given — there is nothing to join.
+    join: Join | None = None
     #: How much of the inventory the catalog had an opinion about. ``None`` when no
     #: inventory was given (there is nothing to have covered). A silent capability
     #: tier is only a *result* if this says the catalog recognised the stack.
@@ -329,9 +374,14 @@ def format_report(
 
     lines = [_HEADER, "=" * len(_HEADER), "", *_LEGEND]
 
-    # Coverage comes FIRST, because it bounds everything below it. A reader who meets
-    # the tiers before learning we recognised none of their tools has already drawn the
-    # wrong conclusion by the time the caveat arrives.
+    # The join comes first, because a failed join means the tiers below cannot be
+    # COMPARED to each other at all — a stronger and more urgent caveat than coverage,
+    # which only bounds what each tier could see.
+    lines += _join_section(results.join)
+
+    # Coverage next, because it bounds everything below it. A reader who meets the tiers
+    # before learning we recognised none of their tools has already drawn the wrong
+    # conclusion by the time the caveat arrives.
     lines += _coverage_section(results.coverage)
 
     lines += _realized_section(results)

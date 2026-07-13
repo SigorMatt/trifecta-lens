@@ -92,9 +92,27 @@ def test_composability_join_trace_names_subset_of_inventory() -> None:
 
 
 def test_toolref_qualified() -> None:
-    assert ToolRef("filesystem", "read_text_file").qualified == (
+    assert ToolRef(name="read_text_file", server="filesystem").qualified == (
         "filesystem__read_text_file"
     )
+
+
+def test_a_tool_with_no_server_is_identified_by_its_bare_name() -> None:
+    """`server` is OPTIONAL, and that is what makes a non-MCP agent work (D14).
+
+    Qualification exists for exactly one reason: under MCP two servers may each expose a
+    `read`. An agent whose tools are ordinary local functions (LangChain, a hand-rolled
+    loop) has NO servers and a flat name space — and its trace emits `send_email`, not
+    `local__send_email`.
+
+    Forcing a fake server on such a stack invents an identity its trace does not carry,
+    which breaks the composability join BY CONSTRUCTION. That is not hypothetical: it
+    produced a REALIZED trifecta alongside a REACHABLE two-leg in one report — realized
+    ⊄ reachable, the containment guarantee violated in the one place this project calls
+    it structural.
+    """
+    assert ToolRef(name="send_email").qualified == "send_email"
+    assert ToolRef(name="send_email", server=None).qualified == "send_email"
 
 
 def test_provenance_is_carried_through() -> None:
@@ -115,11 +133,37 @@ def test_malformed_inventory_fails_loudly(tmp_path: Path) -> None:
         load_inventory(bad)
 
     bad.write_text(
-        json.dumps({"contexts": [{"id": "c", "tools": [{"tool": {"name": "t"}}]}]}),
+        json.dumps({"contexts": [{"id": "c", "tools": [{"server": "s"}]}]}),
         encoding="utf-8",
     )
-    with pytest.raises(InvalidInventoryError):  # tool entry missing 'server'
+    with pytest.raises(InvalidInventoryError):  # tool entry missing the 'tool' object
         load_inventory(bad)
+
+    # An EMPTY server is malformed — but an ABSENT one is the non-MCP case and is legal
+    # (D14). The two must not be conflated: one is a broken file, the other is a whole
+    # class of agent.
+    bad.write_text(
+        json.dumps({"contexts": [{"id": "c", "tools": [
+            {"server": "", "tool": {"name": "t"}}
+        ]}]}),
+        encoding="utf-8",
+    )
+    with pytest.raises(InvalidInventoryError):
+        load_inventory(bad)
+
+
+def test_an_inventory_with_no_servers_at_all_loads(tmp_path: Path) -> None:
+    """The non-MCP shape: no `server` anywhere, identities are bare names (D14)."""
+    path = tmp_path / "flat.json"
+    path.write_text(
+        json.dumps({"contexts": [{"id": "researcher", "tools": [
+            {"tool": {"name": "crm_lookup"}},
+            {"tool": {"name": "send_email"}},
+        ]}]}),
+        encoding="utf-8",
+    )
+    inventory = load_inventory(path)
+    assert inventory.posture_tools() == {"crm_lookup", "send_email"}
 
 
 def test_posture_is_deterministic() -> None:

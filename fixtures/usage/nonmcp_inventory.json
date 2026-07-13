@@ -1,0 +1,14 @@
+{
+  "contexts": [
+    {
+      "id": "researcher",
+      "provenance": "HAND-AUTHORED for USAGE.md scenario 4 — not a capture. It illustrates a NON-MCP agent: the tools are ordinary local functions, so there is no server to launch, no tools/list to ask for, and no trifecta-capture run to make. In a real non-MCP stack you transcribe this from your own tool registry and say so here, in your own words, exactly as this note does. Note there is no 'server' key on the tools: this agent has no servers, so a tool's identity is its bare name — the same name its trace carries (DECISIONS.md D14).",
+      "tools": [
+        {"tool": {"name": "fetch"}},
+        {"tool": {"name": "crm_lookup"}},
+        {"tool": {"name": "send_email"}},
+        {"tool": {"name": "list_files"}}
+      ]
+    }
+  ]
+}

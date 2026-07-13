@@ -22,6 +22,7 @@ from trifecta_lens.engine import (
 )
 from trifecta_lens.findings import NdjsonSerializable, write_ndjson
 from trifecta_lens.inventory import load_inventory
+from trifecta_lens.join import composability_join
 from trifecta_lens.labeling import label_events, label_inventory
 from trifecta_lens.loader import load_otlp_trace, load_trace
 from trifecta_lens.model import Event
@@ -63,9 +64,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="trifecta-lens",
         description=(
-            "Read-only analyzer for lethal-trifecta / data-exfil exposure in "
-            "MCP-based agent systems. Reads a captured trace and the MCP "
-            "manifest; writes findings to stdout/files only."
+            "Read-only analyzer for lethal-trifecta / data-exfil exposure in agent "
+            "systems, MCP or not. Reads a captured trace and a captured tool "
+            "INVENTORY (not the MCP host config — that file contains no tools; "
+            "DECISIONS.md F1). Writes findings to stdout/files only. The inventory "
+            "is a documented file, not an MCP privilege: a hand-written one works "
+            "(USAGE.md, schema/inventory.schema.json)."
         ),
         epilog=_SCOPE_HELP,
     )
@@ -141,6 +145,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             collapse=reachable_collapse(stack),
             coverage=inventory_coverage(stack),
         )
+        # Only meaningful when BOTH artifacts were given: do they describe one system?
+        if args.trace is not None:
+            results = replace(
+                results, join=composability_join(results.events, stack)
+            )
 
     # Findings are written as they are found — an append-stream, never a document
     # assembled at the end (DESIGN.md §6). Strongest tier first, so a consumer
@@ -167,6 +176,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"warning: the catalog matched NONE of the {results.coverage.total} tools "
             "in this inventory. The silent tiers above are a limit of our labeling, "
             "not a clean result. See the COVERAGE section, and --catalog.",
+            file=sys.stderr,
+        )
+
+    # A failed join is worse than thin coverage: the tiers are not comparable at all, so
+    # the report's central claim (realized ⊆ reachable ⊆ posture) does not hold of it.
+    if results.join is not None and results.join.applicable and not results.join.holds:
+        disjoint = (
+            " — the two artifacts share NO tool names"
+            if results.join.disjoint
+            else ""
+        )
+        print(
+            f"warning: {len(results.join.unlisted)} tool(s) the trace called are "
+            f"absent from the inventory{disjoint}. The tiers above are NOT describing "
+            "one system and must not be compared. See the JOIN section.",
             file=sys.stderr,
         )
 

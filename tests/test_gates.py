@@ -58,6 +58,7 @@ STAGE_2_MODULES = frozenset(
         "taint.py",  # value extraction + matching: keyed on ROLES and payloads
         "findings.py",  # the findings contract
         "coverage.py",  # how much of the stack the catalog labeled: keyed on ROLES
+        "join.py",  # do the two artifacts describe one system: identity EQUALITY only
         "report.py",  # rendering
         "svg.py",  # rendering
     }

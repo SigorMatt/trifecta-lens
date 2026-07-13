@@ -45,12 +45,12 @@
     },
     "tool_entry": {
       "title": "one exposed tool",
-      "description": "Tool identity is SERVER-QUALIFIED — `<server>__<tool>` — because two servers may each expose a `read`. That qualified name is also what the trace's `tool.name` carries, which is what lets a trace and an inventory join on shared identity (the composability join, DECISIONS.md D8). The `server` id therefore may not itself contain `__`, or the qualified name would be ambiguous.",
+      "description": "A tool's IDENTITY is `<server>__<tool>` when a server serves it, and its bare `<tool>` name when nothing does. That identity is also what the trace's `tool.name` must carry — it is what lets a trace and an inventory join on shared identity (the composability join, DECISIONS.md D8/D14). If they disagree, the analyzer says so and refuses to compare the tiers.\n\nQualification exists for exactly one reason: under MCP, two servers may each expose a `read`. An agent whose tools are ordinary local functions (LangChain, LlamaIndex, a hand-rolled loop) has NO servers and a flat name space — so it OMITS `server`, and its tools are identified by bare name, which is what its trace carries. Inventing a fake server for such a stack would invent an identity its trace does not have.",
       "type": "object",
-      "required": ["server", "tool"],
+      "required": ["tool"],
       "properties": {
         "server": {
-          "description": "The server that exposed this tool. Must not contain the `__` namespace separator.",
+          "description": "The server that exposed this tool. OPTIONAL — omit it for a non-MCP agent with no servers. Must not contain the `__` namespace separator.",
           "type": "string",
           "minLength": 1
         },

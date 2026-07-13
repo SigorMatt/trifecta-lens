@@ -1,0 +1,21 @@
+# USAGE.md scenario 4 — the overlay that teaches trifecta-lens ONE tool of our stack.
+#
+# The shipped catalog already knows `fetch` (untrusted content off the web) and
+# `send_email` (an outbound sink). It has never heard of `crm_lookup` — that is OUR tool,
+# and no default catalog could know what it returns.
+#
+# So the first run finds NOTHING: the exfil family needs a sensitive_data leg, and without
+# a label on crm_lookup there isn't one. The COVERAGE section names the tool it had no
+# opinion about, which is the difference between "you are clean" and "we could not see".
+#
+# One entry closes it. The engine is not recompiled and learns no tool name.
+#
+# `list_files` is deliberately left unlabeled: it returns names, not content. Labeling it
+# would make every directory listing a leg of an exfil finding (SPEC.md §4) — a wrong
+# label is worse than a missing one.
+version: 1
+entries:
+  - id: acme.crm.lookup
+    match: {tool: "crm_lookup"}
+    role: sensitive_data
+    note: "returns a customer record from our CRM: name, plan, partial card, home address"

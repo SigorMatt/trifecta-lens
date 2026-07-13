@@ -470,6 +470,62 @@ report to catch it.
 usefulness fix, and it is a separate, larger piece of work with a fixture bar
 (`CONTRIBUTING.md`) that this PR would have had to shortcut.
 
+## D14 — Tool identity is bare when there is no server; the join is checked at runtime
+
+*Taken 2026-07-13, while writing `USAGE.md`'s non-MCP scenario — which is how it was found.*
+
+**The bug.** `DESIGN.md` §3 says containment is *"a structural property of the machine, not
+editorial discipline in report text."* It is — **for two artifacts that share a tool name
+space.** Nothing checked that they did. The tiers never meet: realized labels the *events of
+the trace*, the capability tiers label the *tools of the inventory*, and each is
+individually correct on its own input.
+
+So a non-MCP agent — an OpenInference trace emitting bare `fetch`, and a hand-written
+inventory forced to emit qualified `local__fetch` — produced **this, in one report, with no
+complaint**:
+
+```
+[REALIZED]   exfil_trifecta            (all three legs)
+[REACHABLE]  sensitive_to_exfil_sink   (two-leg — NOT the trifecta)
+```
+
+A **realized trifecta that the reachable tier says cannot be wired.** `realized ⊄
+reachable` — the guarantee the entire tier design rests on, violated silently, in the one
+place this project calls it structural. D8 already called the join *"a fixture assertion —
+an executable test, not a hope"*, and it is: `tests/test_inventory.py` pins it **for our own
+artifacts**. Nothing pinned it for the **user's**. A guarantee that holds only for inputs we
+happened to author is not a guarantee; it is a coincidence.
+
+**Decision, two parts.**
+
+1. **`server` is optional. A tool with no server is identified by its bare name.**
+   Qualification exists for exactly one reason (D8): under MCP, two servers may each expose
+   a `read`. An agent whose tools are ordinary local functions — LangChain, LlamaIndex, a
+   hand-rolled loop — has **no servers** and a flat name space, and its trace emits
+   `send_email`, not `local__send_email`. Forcing a fake server on such a stack **invents an
+   identity its trace does not carry**, and the join could then *never* hold. This was not a
+   cosmetic wart: it made the containment guarantee unsatisfiable for every non-MCP user.
+   `schema/inventory.schema.json` and `SPEC.md` §7.2 updated; this **widens** the input
+   contract (every existing inventory still validates).
+
+2. **The composability join is computed at runtime and disclosed when it fails.** Two
+   failures, and the report distinguishes them because the reader's next move differs:
+   *disjoint* (no shared names at all — almost always a name-space mismatch) and *unlisted*
+   (the trace called a tool the inventory lacks — the inventory is incomplete, D8's subset
+   condition). Both mean the tiers are **not describing one system** and must not be
+   compared. stderr warns too.
+
+**We disclose; we do not repair.** We cannot know whether the inventory is incomplete or the
+two artifacts simply disagree on names — the evidence is identical. Renaming a user's tools
+to force a match would put a tool in a finding **that no artifact named**, which is the same
+line D2 draws about topology and invariant 4 draws about causation. The report offers both
+readings and picks neither.
+
+**Why this was invisible for three phases.** Every fixture in the repo was MCP-shaped and
+produced by the same capture, so the join always held. The bug was reachable only from an
+input we had never written — which is the argument for scenario 4 in `USAGE.md` existing at
+all, and for building it from a *real* non-MCP shape rather than a sketch.
+
 ---
 
 ## Sequencing
