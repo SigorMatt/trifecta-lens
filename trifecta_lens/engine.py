@@ -90,8 +90,19 @@ class Family:
 #:
 #: The action-hijack family (`sink:impact`) is deliberately ABSENT: it is
 #: fast-follow (SPEC.md §3, ROADMAP Phase 4). The catalog already labels impact
-#: sinks; no v1 family accepts on them. Adding the family later is adding a row
-#: here — the states and the guard do not move.
+#: sinks; no v1 family accepts on them.
+#:
+#: **It is NOT merely "adding a row here", and this comment used to say it was.**
+#: `satisfied_families` below is called by EVERY tier, `_accept` (the realized path)
+#: included. Drop an action-hijack row into this tuple and the realized tier starts
+#: emitting action-hijack findings on the next run — which is precisely what Phase 4
+#: forbids ("posture + reachable only; hold realized until there is a defensible
+#: causation signal", ROADMAP). A `Family` needs to declare which TIERS may report it
+#: before the row is safe to add. That is a `SPEC.md` §5 change and therefore a
+#: recorded decision (**D16**), to be taken when Phase 4 is planned — not smuggled in
+#: by someone following a stale comment.
+#:
+#: The states and the guard still do not move. That part was always true.
 FAMILIES: Final[tuple[Family, ...]] = (
     Family(
         id=FAMILY_TRIFECTA,

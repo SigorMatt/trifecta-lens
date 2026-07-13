@@ -11,6 +11,29 @@
 # demo harness and any host that does not qualify) and qualified names (a real
 # MCP stack). Both are legitimate; the trace decides which one is seen.
 #
+# THE SERVER-NAME REPETITION TRAP — read this before writing a pattern.
+#
+# Many of the most-deployed servers repeat their own name inside the tool name:
+# Slack exposes `slack_post_message`, Brave exposes `brave_web_search`, Puppeteer
+# exposes `puppeteer_navigate`. Qualified, those arrive as:
+#
+#     slack__slack_post_message      brave__brave_web_search
+#
+# The obvious pattern `(.*__)?post_message` DOES NOT MATCH THAT. `.*__` eats
+# `slack__`, leaving `slack_post_message`, which is not `post_message`. For most of
+# this project's life that is exactly what happened: the single commonest exfil sink
+# in production MCP — a Slack message post — was invisible to this catalog, and so
+# were web search and browser navigation, the two commonest untrusted sources.
+# Nothing lied; the coverage report dutifully listed them as unmatched. It just
+# never had an opinion about anyone's real stack.
+#
+# So the prefix idiom is `(.*__)?([a-z0-9]+_)?` — optional server qualification,
+# then the optional server-name repetition. It is applied DELIBERATELY, only to
+# entries where a real server is known to need it, and never as a blanket loosening
+# of every pattern in the file: `([a-z0-9]+_)?` widens what a rule accepts, and a
+# rule that accepts too much manufactures confident findings, which is the one
+# failure this catalog exists to avoid.
+#
 # A tool that matches several entries takes the UNION of their roles. The note
 # cited for a role is the first matching entry's, in file order.
 #
@@ -60,6 +83,34 @@ entries:
     role: untrusted_source
     note: "returns inbound message content, which is written by third parties"
 
+  # Web search results. Third-party content by definition, and rankable/seedable by
+  # whoever wants the agent to read something — the same argument as issue text, on a
+  # bigger surface. `brave_web_search` needs the repetition idiom (see the trap above).
+  - id: web.search
+    match: {tool: "(.*__)?([a-z0-9]+_)?(web_search|local_search|google_search|search_web)"}
+    role: untrusted_source
+    note: "returns web search results, which are third-party content"
+
+  # A page the browser fetched. This is `fetch` with a rendering engine in front of it,
+  # and it is how most agent frameworks read the web now.
+  #
+  # NOT here: `puppeteer_evaluate` / `browser_evaluate`, which execute script in the
+  # page. That is an ACTION, not a read, and it belongs to sink:impact — but the
+  # action-hijack family does not exist in v1, so labeling it would add a leg no family
+  # accepts on while implying we reason about it. It waits for Phase 4.
+  - id: browser.page
+    match: {tool: "(.*__)?([a-z0-9]+_)?(navigate|browser_navigate|goto_page)"}
+    role: untrusted_source
+    note: "returns the content of a web page the browser was pointed at"
+
+  # Chat history: other people's messages, read by the agent. Same vector as issue
+  # text — a third party writes it, the agent ingests it — and Slack is where most
+  # organisations actually keep it.
+  - id: chat.history
+    match: {tool: "(.*__)?([a-z0-9]+_)?(get_channel_history|get_thread_replies|conversations_history|conversations_replies)"}
+    role: untrusted_source
+    note: "returns other users' chat messages, which are written by third parties"
+
   # --- sensitive_data: data whose leaving the boundary is the harm ------------
 
   - id: vault.secret
@@ -87,6 +138,22 @@ entries:
     role: sensitive_data
     note: "reads file contents from the local filesystem (MCP filesystem server)"
 
+  # The SAME leg, from any other server. The entry above is anchored to `filesystem__`,
+  # so for most of this project's life a file read was only a leg if it came from the
+  # reference filesystem server: `gdrive__read_file` — a document out of the company's
+  # Drive — was silent. The generic pattern is what the leg actually means.
+  #
+  # Ordering matters: the filesystem entry sits ABOVE this one, so a filesystem read
+  # still cites the more specific note. Roles union; the first match wins the citation.
+  #
+  # Still NOT here, and for the same reason as before: directory listings, metadata and
+  # name searches (`list_directory`, `get_file_info`, `search_files`). They return
+  # NAMES. Labeling them would make every `ls` a leg of an exfil finding.
+  - id: file.read
+    match: {tool: "(.*__)?read_(text_|media_|multiple_)?files?"}
+    role: sensitive_data
+    note: "reads file contents"
+
   # --- sink:exfil: data crosses the boundary outward -------------------------
 
   - id: webhook.post
@@ -109,8 +176,13 @@ entries:
     note: "sends a request body to an outbound HTTP endpoint"
 
   # Email/chat send: the data leaves the boundary to a recipient the model chose.
+  #
+  # The `([a-z0-9]+_)?` is the repetition idiom, and it is doing real work here: Slack's
+  # server exposes `slack_post_message`, so the qualified name is
+  # `slack__slack_post_message` and the old pattern missed it. This is the commonest
+  # outbound sink in production MCP, and it was the one this catalog could not see.
   - id: message.send
-    match: {tool: "(.*__)?(send_email|send_message|post_message|send_notification)"}
+    match: {tool: "(.*__)?([a-z0-9]+_)?(send_email|send_message|post_message|send_notification|reply_to_thread)"}
     role: sink
     subtype: exfil
     note: "sends a message body to an external recipient"
@@ -123,6 +195,16 @@ entries:
     role: sink
     subtype: exfil
     note: "writes text to a shared/public location (issue, PR, comment thread)"
+
+  # The same sink, in a knowledge base. A Notion page or a wiki doc is a SHARED
+  # location: whatever the model writes there is readable by everyone in the workspace,
+  # and often by anyone with the link. It does not look like an outbound request, which
+  # is precisely why it is worth labeling.
+  - id: docs.write
+    match: {tool: "(.*__)?(create_page|update_page|append_block_children|create_document|update_document)"}
+    role: sink
+    subtype: exfil
+    note: "writes text to a shared workspace document (wiki/knowledge base page)"
 
   # --- sink:impact: a consequential ACTION, not a data leak -------------------
   #
@@ -148,3 +230,29 @@ entries:
     role: sink
     subtype: impact
     note: "merges code into a branch"
+
+  - id: repo.write
+    match: {tool: "(.*__)?(create_or_update_file|push_files|delete_file|create_branch)"}
+    role: sink
+    subtype: impact
+    note: "writes code or files into a repository"
+
+  # --- DELIBERATELY ABSENT — database and search reads ------------------------
+  #
+  # Not an oversight. Postgres exposes `query` / `read_query`; Snowflake the same;
+  # Notion and Drive spell their reads `search`. A stranger running any of them gets
+  # SILENCE from this catalog, and the coverage report names every one of those tools
+  # as unmatched (D13), so the silence is at least audible.
+  #
+  # The pattern would have to be `search|query|retrieve`, and that is the collision
+  # CONTRIBUTING.md already refuses to guess at. A query may read a public price list
+  # or the credentials table; the NAME does not say which, and this catalog's whole
+  # discipline is that a wrong label is worse than a missing one. A blanket
+  # `sensitive_data` on every `query` would put a confident leg under findings for
+  # every agent that has ever read a database — noise wearing the costume of evidence.
+  #
+  # This is the case the `--catalog` overlay exists for. A user who KNOWS their
+  # Postgres holds secrets says so in four lines, and the unmodified engine finds the
+  # trifecta on their stack (USAGE.md has the worked example). That is the mechanism
+  # working, not a gap in it. It lands here as a default only when a real trace shows
+  # a naming convention that carries the semantics — D9's rule, and it still stands.

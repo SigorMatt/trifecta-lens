@@ -52,6 +52,9 @@ BENIGN_CORPUS: dict[str, str] = {
         "captured refusal: no vault/webhook call at all",
     "triage_benign_control.jsonl":
         "captured control: injection absent by construction",
+    "benign_modern_stack_summary.jsonl":
+        "all THREE legs labeled on a real-shaped stack; the agent summarized "
+        "instead of pasting (verbatim guard)",
 }
 
 
@@ -116,6 +119,34 @@ def test_a_secret_lookalike_at_the_sink_is_silent() -> None:
     present = _roles_present("benign_lookalike_not_the_secret.jsonl")
     assert SENSITIVE_DATA in present and SINK_EXFIL in present
     assert list(detect_realized(_events("benign_lookalike_not_the_secret.jsonl"))) == []
+
+
+def test_the_modern_stack_is_silent_with_ALL_THREE_legs_labeled() -> None:
+    """The hardest benign case in the corpus, and the one the new entries earn.
+
+    Brave search, a Drive read and a Slack post: every leg of the trifecta present
+    AND labeled, the sink genuinely called, the secret genuinely read. The only
+    thing that did not happen is the agent pasting the value — it summarized. So
+    the silence rests on the verbatim guard and nothing else.
+
+    This is the fixture that would catch the new catalog entries being *louder than
+    the truth*. Its twin, `modern_stack_trifecta.jsonl`, is the same stack where the
+    agent DOES paste, and it fires. Same tools, same labels, opposite verdicts —
+    which is the only way to show the entries discriminate rather than just shout.
+    """
+    events = _events("benign_modern_stack_summary.jsonl")
+    present = _roles_present("benign_modern_stack_summary.jsonl")
+    assert {UNTRUSTED_SOURCE, SENSITIVE_DATA, SINK_EXFIL} <= present, (
+        "the point of this fixture is that all three legs ARE labeled — if a leg "
+        "went missing, its silence would prove nothing"
+    )
+
+    sink = next(e for e in events if e.tool == "slack__slack_post_message")
+    assert SINK_EXFIL in sink.roles
+    assert not value_in_payload(SECRET, sink.inputs), (
+        "the benign twin must not carry the secret to the sink"
+    )
+    assert list(detect_realized(events)) == []
 
 
 def test_untrusted_source_to_sink_without_a_secret_is_silent() -> None:

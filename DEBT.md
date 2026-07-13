@@ -39,16 +39,41 @@ format is how the "manifest contains tools" error (F1) happened.
 
 ## Chosen, not forgotten — the ones with a decision behind them
 
-- **Catalog breadth.** 16 entries. A stranger running Postgres, Slack, Notion, Linear or
-  Snowflake gets **silence** — and since D13 the report *says* so, naming every tool it had
-  no opinion about. Disclosure was the honesty fix; **breadth is the usefulness fix and is
-  still owed.** Each entry needs a positive *and* a benign fixture (`CONTRIBUTING.md`), so
-  this is real work, not a list. It is the highest-leverage thing available: the engine
-  needs no change, and it converts silence into findings for every stack it covers.
-- **Action-hijack (`sink:impact`).** The catalog already ships three impact entries
-  (shell/exec, destructive writes, PR merge) and **no v1 family accepts on them** — they are
-  inert today. Phase 4. Adding the family is adding a row to `FAMILIES`; the automaton does
-  not move.
+- **Catalog breadth.** *Partly paid (4.2) — and the debt was worse than this file said.*
+  Measured against the tool names real MCP servers actually expose, the 16-entry catalog
+  labeled **9 of 31 tools: 71% silence.** It was not merely "too few entries" — two entries
+  were **shaped wrong.** Real servers repeat their own name inside the tool
+  (`slack_post_message`), so the qualified name is `slack__slack_post_message`, which
+  `(.*__)?post_message` cannot match. The commonest outbound sink in production MCP was
+  invisible, and so were web search and browser navigation, the two commonest untrusted
+  sources. Nothing lied — D13's coverage section listed every one as unmatched — but the
+  tool had no opinion about anybody's real stack.
+
+  4.2 fixed the shape and added Slack, Brave, Puppeteer, Drive, Notion and repo writes:
+  **19 of 31, 39% silence**, pinned in `tests/test_catalog_real_stacks.py`. **The long
+  tail is still owed and is still the highest-leverage item available:** the engine needs
+  no change, and every entry converts silence into findings for a whole stack. Each one
+  needs a positive *and* a benign fixture (`CONTRIBUTING.md`), so it is real work.
+
+  **Deliberately NOT owed:** database and search reads (`postgres__query`,
+  `snowflake__read_query`, `notion__search`). The pattern would have to be
+  `search|query|retrieve`, which `CONTRIBUTING.md` refuses to guess at: a query may read a
+  public price list or the credentials table, and the name does not say which. That is what
+  `--catalog` overlays are for. The expected-silence table in `test_catalog_real_stacks.py`
+  records the decision, so the next person to meet the silence reads it as a choice rather
+  than a bug and does not "fix" it into noise.
+- **Action-hijack (`sink:impact`).** The catalog ships four impact entries (shell/exec,
+  filesystem mutation, repo write, PR merge) and **no v1 family accepts on them** — inert
+  today. Phase 4.
+
+  **It is NOT "adding a row to `FAMILIES`" — and this file used to say it was.**
+  `satisfied_families()` is called by every tier, `_accept` (the realized path) included,
+  so dropping the row in lights up **realized** on the next run — exactly what Phase 4
+  forbids ("hold realized until there is a defensible causation signal"). `Family` must
+  first declare which tiers may report it. That is a `SPEC.md` §5 change and therefore a
+  recorded decision — **D16**, to be taken deliberately when Phase 4 is planned, not
+  smuggled in by someone following our own documentation. The automaton's states and guard
+  genuinely do not move; the *reporting gate* is the work.
 - **Remote-MCP transports in `trifecta-capture`.** Rejected in D11 on cost, *not* on
   principle: `trifecta_capture` sits outside core, so network there breaks no invariant. The
   escape hatch (`--from-tools-list`) covers every transport at a fraction of the surface. **If

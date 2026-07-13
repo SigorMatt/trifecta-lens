@@ -175,3 +175,33 @@ cross_agent_handoff.jsonl
         fix: reachable is SILENT here (no single context holds both legs), and the
         report must explain that silence rather than let a reader read it as a
         contradiction or as reassurance.
+
+modern_stack_trifecta.jsonl  +  benign_modern_stack_summary.jsonl
+  authored: BY HAND (task 4.2). NOT a capture. Neither trace is a recording of
+            anything; no agent was run to produce them.
+  shape: an ordinary 2026 stack — `brave__brave_web_search` (a search result
+         carrying an injected instruction) -> `gdrive__read_file` (a deploy key out
+         of the company Drive) -> `slack__slack_post_message` (the file contents,
+         verbatim, into a channel).
+  role: the positive/benign PAIR for the 4.2 catalog entries, and the demonstration
+        of what the coverage work was actually about.
+
+        Until 4.2 this catalog scored ZERO of three on that stack. Not because the
+        engine could not follow the flow — it always could — but because the LABELS
+        were not there. `slack__slack_post_message` is the commonest outbound sink in
+        production MCP and no entry matched it: real servers repeat their own name in
+        the tool (`slack_post_message`), so the qualified name is
+        `slack__slack_post_message`, and `(.*__)?post_message` cannot match that. The
+        report was never wrong; D13's coverage section listed all three tools as
+        unmatched. It simply had no opinion about anybody's real stack.
+
+        The two fixtures are only meaningful together. They are the SAME three tools
+        with the SAME three labels; the only difference is that in one the agent pastes
+        the file contents into Slack and in the other it summarizes. One fires a
+        realized trifecta, the other is silent. That is what shows the new entries
+        DISCRIMINATE rather than merely shout — a catalog entry that is simply louder
+        than the truth would light up both.
+
+        Both are hand-authored, and that word is not decoration: the project has never
+        captured a realized trifecta in the wild (D10), and it does not claim to have
+        captured one now.

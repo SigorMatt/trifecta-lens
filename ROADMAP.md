@@ -263,6 +263,20 @@ the beginning of the vocabulary for one. Whether a genuine `causal` chain is
 *sufficient* to release action-hijack realized is a **halt-and-ask**, not a
 default.
 
+**The first thing this phase must do is NOT what this file used to say it was.**
+Adding action-hijack is *not* "adding a row to `FAMILIES`". `satisfied_families()` is
+called by every tier — `_accept`, the realized path, included — so a new row starts
+emitting **realized** action-hijack findings immediately, which is the one thing the
+paragraph above forbids. `Family` must first declare which tiers may report it: a
+`SPEC.md` §5 change, and therefore a decision (**D16**) to be taken openly at the start
+of this phase. The automaton's states and guard genuinely do not move; the reporting
+gate is the work. `DEBT.md` carries the detail.
+
+**Also inherited: the catalog's long tail** (4.2). Coverage on real stacks went from
+71% silent to 39%, and the remainder is mostly the deliberate `search|query|retrieve`
+abstention. A CI surface shipped on top of a catalog that cannot see a user's stack
+reports "clean" and means "unrecognised" — see the binding constraint below.
+
 **Binding before this phase starts (D13): coverage must ride into SARIF.** A CI job
 consuming an empty `findings.ndjson` would otherwise report "clean" on a stack the tool
 never recognised — the D13 bug with a worse blast radius and **no human reading a report

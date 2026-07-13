@@ -163,7 +163,15 @@ list is its summary, and a test keeps the two honest):
   location** (a comment on a public issue publishes the payload just as surely as a
   POST does); the demo `notify` sink.
 - `sink:impact` (catalog present; **no v1 family accepts on it** — action-hijack is
-  fast-follow, §3): `shell.exec`; destructive file writes; PR merge.
+  fast-follow, §3): `shell.exec`; destructive file writes; repo writes; PR merge.
+
+  > **Before adding the action-hijack family, read this.** It is *not* enough to add a
+  > row to `FAMILIES`. `satisfied_families()` is called by **every** tier, the realized
+  > path included, so a new row emits **realized** action-hijack findings on the next
+  > run — which §3 and `ROADMAP.md` Phase 4 explicitly forbid until there is a
+  > defensible causation signal. A `Family` must first declare which tiers may report
+  > it. That is a change to this section, and therefore a recorded decision: **D16**,
+  > deliberately deferred to Phase 4 planning.
 
 **Deliberately NOT in v1, and why.** RAG / retrieved-document reads are a real
 untrusted source, but real tools spell them `search`, `query`, `retrieve` — names

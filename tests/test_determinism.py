@@ -107,6 +107,13 @@ def test_the_fixture_corpus_census_is_pinned() -> None:
         # SPEC.md §8 denied the capability outright.
         "cross_agent_handoff.jsonl": 1,
         "demo_realized.jsonl": 1,
+        # hand-authored (4.2): Brave search -> Drive read -> Slack post. An ordinary
+        # 2026 stack, and one the catalog scored ZERO of three on until the entries
+        # landed — the engine could always have found this; the LABELS were what
+        # stopped it. Its benign twin below is the same three tools, same three
+        # labels, and the agent summarizing instead of pasting.
+        "modern_stack_trifecta.jsonl": 1,
+        "benign_modern_stack_summary.jsonl": 0,
         "triage_benign_control.jsonl": 0,
         "triage_refused_sonnet5.jsonl": 0,
         "worked_example.jsonl": 1,  # hand-authored: the trifecta's accepting path
