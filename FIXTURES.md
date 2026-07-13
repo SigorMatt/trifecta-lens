@@ -40,6 +40,12 @@ same attribute names real instrumentation emits.
 OpenInference puts the payload in flat, dotted attribute keys. v1 keys on this
 minimal subset (everything else is ignored, not an error):
 
+**This table is a contract: every key in it is read by the loader, and every key the
+loader reads is in it.** `tests/test_trace_contract.py` fails the build otherwise. (It
+did not used to be. A `retrieval.documents.*` row sat here for two phases describing a
+key no code has ever read — so a contributor writing a fixture against this table would
+have had their attribute silently ignored. See `DECISIONS.md` D12.)
+
 | Attribute key | Meaning | Maps to |
 |---|---|---|
 | `openinference.span.kind` | span type: `TOOL`, `LLM`, `RETRIEVER`, `AGENT`, ... | `Event.action` (+ ingest routing) |
@@ -48,7 +54,17 @@ minimal subset (everything else is ignored, not an error):
 | `input.mime_type` | `text/plain` or `application/json` | how to parse `input.value` |
 | `output.value` | operation output payload | `Event.outputs` |
 | `output.mime_type` | as above | how to parse `output.value` |
-| `retrieval.documents.{i}.document.content` | RAG doc text | source content (RETRIEVER spans) |
+
+**Not read (`SPEC.md` §7.3).** RAG document content
+(`retrieval.documents.{i}.document.content`) and LLM message payloads are **not
+ingested in v1** — no captured trace we hold carries them, and a front-end built
+against a format we have never seen is a guess. `gen_ai.*` (OTel GenAI) is a
+**different semantic convention** and is not supported at all: such a trace is refused,
+not silently half-read.
+
+**Only tool spans produce roles.** A span with no `tool.name` gets no roles from the
+catalog and contributes nothing to any finding — it is parsed and ordered, and that is
+all. LLM/AGENT/RETRIEVER spans are inert today.
 
 Rules:
 - If `*.mime_type` is `application/json`, parse the value as JSON into the dict;

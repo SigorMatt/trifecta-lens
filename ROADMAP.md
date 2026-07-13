@@ -203,6 +203,28 @@ straight through. `tests/test_readme.py` now gates that class too, and was check
 against the pre-fix README to confirm it bites. A tool whose moat is saying what it
 cannot do has to test for what it failed to say.
 
+#### Addendum 3.11 (D12) — and the same drift on the trace side
+
+Asking the sibling question — *what trace shapes does this actually consume?* — found
+the same defect pointed the other way. `SPEC.md` §7 claimed **"OTel GenAI /
+OpenInference spans."** No `gen_ai.*` key is read anywhere in core, and such a trace
+does not degrade: it is **refused on span one**. The source-of-truth document named a
+format the loader hard-fails on. And `FIXTURES.md`'s attribute table promised a
+`retrieval.documents.*` key that nothing has ever read.
+
+**The conceptual error, worth keeping:** *envelope* and *semantic convention* are two
+different axes, and the docs conflated them. We ship **two envelopes** (flat JSONL,
+OTLP/JSON) and **one convention** (OpenInference). Shipping the second *envelope* in
+task 2.7 quietly became a claim about *conventions* — it was never one.
+
+Shipped: `SPEC.md` §7.3; a loader refusal that explains itself rather than calling a
+valid GenAI trace "malformed"; `tests/test_trace_contract.py`, which pins the
+documented key surface to the read key surface in **both** directions; and **D12**,
+recording the rule the OTLP adapter had already proved (*a format is a new Stage-1
+front-end, never an engine branch*) — which **closes `OPEN_QUESTIONS.md` §5, the last
+open item in that file.** The GenAI adapter and RAG ingest are deliberately **not**
+built: D9's rule stands, and we hold no captured trace of either. 268 tests green.
+
 **Open, and deliberately not decided by the build agent:** publishing to PyPI (needs
 the operator's credentials and is an outward-facing, one-way action). `main` is
 pushed (`b8ab1bf`).

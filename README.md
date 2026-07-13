@@ -183,7 +183,13 @@ tests, not by good intentions.
   1. **RAG / LLM-message ingest is not built.** Retrieved documents
      (`retrieval.documents.*`) and LLM message payloads are not read as untrusted
      sources yet. No captured trace we hold carries them, and inventing an ingest
-     path for a format we have never seen is how tools acquire silent bugs.
+     path for a format we have never seen is how tools acquire silent bugs. Its
+     sibling, which you need to know *before* you point us at a trace: we read
+     **one** semantic convention, **OpenInference** — in either envelope (flat JSONL
+     or real OTLP/JSON, auto-detected). A trace instrumented with **OTel GenAI**
+     (`gen_ai.*` keys) is a *different* convention and **does not load**; it is
+     refused with an error that says so, rather than half-read. And only **tool
+     spans** carry roles: an LLM or agent span contributes ordering, never a leg.
   2. **The realized anchor is a direct instruction, not a prompt injection.** In
      the captured run, the agent was *asked outright* to read the value and send
      it. Nobody injected anything. It is a real recording of a real flow, and it is

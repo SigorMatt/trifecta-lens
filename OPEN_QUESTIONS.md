@@ -1,6 +1,6 @@
 # OPEN_QUESTIONS.md — deferred spec/design decisions
 
-> **STATUS: §§1–4 RESOLVED. §5 remains OPEN.**
+> **STATUS: ALL RESOLVED (§§1–5). This file is now history.**
 >
 > §§1–4 were resolved in the Phase 2 planning conversation (2026-07-12); the
 > decisions and their rationale live in **`DECISIONS.md`**: §1 → **D3**
@@ -8,18 +8,19 @@
 > required), §4 → **D6** (module-scoped gate). Implementation: `TASKS.md`
 > **2.1–2.3**.
 >
-> **§5 (multi-format input) is NOT resolved** — but it no longer needs to block.
-> Its own deferral condition is *"we need at least one real non-demo
-> trace/format in hand before fixing the seam's shape"*, and **Checkpoint D
-> satisfies exactly that**: the capture yields a real OTLP trace, which is the
-> second real format that is *allowed* to force the seam. So §5 is answered
-> **by** Track B (`TASKS.md` 2.4–2.7), not ahead of it. Its adjacent decisions
-> are already taken — **D6** puts the stage seam under a gate, and **D9** builds
-> the OTLP front-end against the real captured trace rather than an imagined
-> one. What §5 still owes: the final call on how far the `Event` model must
-> change (2.7 already flags server-qualified tool identity), and an explicit
-> "add a format = add a Stage-1 adapter, never an engine branch" rule recorded
-> as a decision.
+> **§5 (multi-format input) → D12** (2026-07-13). Its deferral condition —
+> *"we need at least one real non-demo trace/format in hand before fixing the
+> seam's shape"* — was satisfied by Checkpoint D, and the OTLP front-end
+> (`TASKS.md` 2.7) then **proved** the seam: a whole second envelope, zero engine
+> change. What §5 still owed was the rule written down, and D12 writes it: **adding
+> a format is a new Stage-1 front-end, never an engine branch.**
+>
+> D12 also corrects an error this section did not foresee. §5 speaks of "formats"
+> as one axis; there are **two**, and conflating them put a false claim in
+> `SPEC.md`. An **envelope** is how spans are packaged (flat JSONL, OTLP/JSON); a
+> **semantic convention** is what the keys mean (OpenInference, OTel GenAI). We
+> ship **two envelopes and one convention** — and the spec had been claiming OTel
+> GenAI support that the loader refuses on span one. See `SPEC.md` §7.3.
 >
 > This file is kept as the record of how the questions were *raised* — what the
 > tension was and why each was deferred rather than guessed. Read it for the
@@ -168,7 +169,7 @@ which is just `DESIGN.md` §5's two-stage seam expressed as a gate. Until then,
 the invariant is upheld by review, and this file is the record that we know the
 gate alone does not uphold it.
 
-## 5. Multi-format input support — where format-specific handling lives
+## 5. Multi-format input support — where format-specific handling lives  *(RESOLVED → D12)*
 
 **Tension:** Different agents/tools produce different output shapes. Two distinct
 layers are involved and must not be conflated: the *telemetry envelope* (span

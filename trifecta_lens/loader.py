@@ -80,8 +80,15 @@ def _event_from_span(span: dict[str, Any], line_no: int) -> Event:
     kind = attributes.get(_ATTR_SPAN_KIND)
     if not kind:
         raise MalformedSpanError(
-            f"span {span_id!r} (line {line_no}) is missing required "
-            f"attribute {_ATTR_SPAN_KIND!r} — malformed fixture"
+            f"span {span_id!r} (line {line_no}) has no {_ATTR_SPAN_KIND!r} attribute.\n"
+            "v1 reads ONE semantic convention: OpenInference (SPEC.md §7.3). Two "
+            "envelopes carry it — flat JSONL and OTLP/JSON — and both must name the "
+            "span kind.\n"
+            "If your spans carry 'gen_ai.*' keys, this is an OTel GenAI trace: a "
+            "different convention, and NOT supported. Your trace is not malformed; we "
+            "do not speak it. A second convention lands only when a real captured "
+            "trace of it is in hand (DECISIONS.md D9/D12) — we will not guess at a "
+            "format we have never seen."
         )
 
     tool = attributes.get(_ATTR_TOOL_NAME)

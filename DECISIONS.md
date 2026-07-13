@@ -343,6 +343,68 @@ README whose quickstart fails for an entire class of stacks. The missing class i
 **unstated preconditions**, and a tool whose moat is *saying what it cannot do* has to
 gate for silence, not only for false statements.
 
+## D12 — One convention, two envelopes; a format is a Stage-1 front-end *(resolves `OPEN_QUESTIONS.md` §5)*
+
+*Taken 2026-07-13, prompted by the question "what trace shapes do we actually support?"
+— which the documents and the code answered differently.*
+
+**The findings that forced it.** Two doc/code drifts, in opposite directions, neither
+visible to any test:
+
+- **`SPEC.md` §7 said the trace input was *"OTel GenAI / OpenInference spans."*** No
+  `gen_ai.*` key is read anywhere in core. And it does not *degrade* — the OpenInference
+  span kind is a **required** attribute, so an OTel GenAI trace is **refused on span
+  one**. The source-of-truth document named a format the loader hard-fails on, and the
+  error blamed the user's file ("malformed fixture") for our own limit.
+- **`FIXTURES.md`'s attribute→Event table carried a `retrieval.documents.*` row** for two
+  phases. Nothing has ever read it. That table *is* the contract a contributor writes a
+  fixture against: the promise was real, the delivery was silence.
+
+**The conceptual error underneath both** — and the thing worth carrying: **envelope and
+semantic convention are two different axes**, and the docs conflated them. An envelope is
+how spans are *packaged* (flat JSONL; OTLP/JSON's nested `resourceSpans`, base64 ids,
+`AnyValue` attribute arrays). A convention is what the attribute keys *mean*
+(OpenInference's `tool.name` / `input.value`; OTel GenAI's `gen_ai.tool.name`). Shipping
+a second **envelope** (task 2.7) felt like broadening format support, and in the docs it
+quietly became a claim about **conventions**. It was not one.
+
+**Decision.**
+
+1. **We ship two envelopes and exactly one convention: OpenInference.** Stated in
+   `SPEC.md` §7.3, with the complete six-key list, and the bound that follows from it:
+   **only tool spans carry roles.** Roles are matched against `Event.tool`, so a span
+   with no `tool.name` contributes nothing to any finding — LLM, AGENT and RETRIEVER
+   spans are parsed, ordered, and **inert**. That is the single largest bound on what the
+   realized tier can see, and until now it was written nowhere.
+
+2. **Adding a format is a new Stage-1 front-end, never an engine branch.** This is
+   invariant 2 ("catalog, not per-path code") extended to the ingest layer, and it is not
+   speculative: `load_otlp_trace` is the worked precedent — a whole second envelope, zero
+   engine change, because both decode into one intermediate span shape and share one
+   attribute→`Event` mapping (`DESIGN.md` §5). A convention adapter lands the same way.
+
+3. **A second convention lands only against a real captured trace of it** (D9's rule,
+   restated). We hold no GenAI-instrumented capture and no RAG trace, so we build
+   neither. Until then they are **named as unsupported** — not "coming soon" — and the
+   loader **refuses loudly, and explains itself**: it says which convention we read, says
+   `gen_ai.*` is a different one, and states plainly that the user's trace is *not
+   malformed, we simply do not speak it*. An honest refusal is the product.
+
+4. **The documented surface and the read surface are pinned to each other.**
+   `tests/test_trace_contract.py`: every key in `FIXTURES.md`'s table is read by the
+   loader, every key the loader reads is in the table, the GenAI refusal is tested
+   behaviour, and "only tool spans carry roles" is executable rather than folklore.
+   Neither side can grow in silence again.
+
+**Rejected:** building the GenAI front-end now (violates D9 — we would be guessing at a
+convention we have never captured, which is precisely how the "manifest contains tools"
+error happened); and leaving the docs to describe an aspiration (a spec that names a
+format the loader refuses is an overclaim in the one document the rest are derived from).
+
+**Related:** this is the same defect class as **D11** — the drift was a *silence* on one
+side and a *false statement* on the other, and neither was gated. The gates now cover
+both.
+
 ---
 
 ## Sequencing

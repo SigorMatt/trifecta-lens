@@ -290,10 +290,10 @@ The on-disk trace-fixture format (span schema + attribute->Event mapping) is
 defined in `FIXTURES.md`.
 
 **Inputs**
-- Trace: OTel GenAI / OpenInference spans, JSON lines. Required fields per event:
-  id, parent/trace linkage, start time, tool name, and **payload-level**
-  input/output. Missing payloads → realized `UNAVAILABLE`, posture/reachable
-  still run.
+- Trace: **OpenInference** spans (§7.3 — one convention, two envelopes). Required
+  fields per event: id, parent/trace linkage, start time, tool name, and
+  **payload-level** input/output. Missing payloads → realized `UNAVAILABLE`,
+  posture/reachable still run.
 - **Tool inventory**: a **captured** artifact — one file, holding a `contexts[]`
   array; each context is an id, a human-written provenance note, and its
   **effective exposed tool set** (the `tools/list` entries actually reachable by
@@ -417,6 +417,59 @@ file, and this section disagree.
   servers, not the definition of a legitimate one. What is forbidden — always, and
   this is the line that never moves — is recording a tool **no server listed**.
   Provenance must say which of the two happened; see the note discipline in D11.
+
+### 7.3 Supported trace shapes (what actually loads)
+
+An earlier draft of §7 said the trace input was *"OTel GenAI / OpenInference spans."*
+**The "OTel GenAI" half was false** (`DECISIONS.md` D12): no `gen_ai.*` key is read
+anywhere in core, and such a trace does not degrade — it is refused, because the
+OpenInference span kind is a required attribute. A spec that names a format the loader
+hard-fails on is the same defect as an overclaim in the output, one layer up.
+
+**Two axes, and they are not the same axis.** Conflating them is what produced that
+error.
+
+- **Envelope** — how spans are packaged. **Two are supported**, and `--trace`
+  auto-detects by inspecting the file rather than trusting its name:
+  - **flat JSONL** — one span per line, attributes already flat (`FIXTURES.md`);
+  - **OTLP/JSON** — real exporter output: nested
+    `resourceSpans[].scopeSpans[].spans[]`, base64 span ids, attributes as
+    `{key, value: {stringValue}}` arrays.
+
+  Both decode into one intermediate span shape and share **one** attribute→`Event`
+  mapping, so the engine never learns there were two (`DESIGN.md` §5).
+- **Semantic convention** — what the attribute keys *mean*. **Exactly one is
+  supported: OpenInference.** The complete set of keys read:
+
+  | Key | Required | Maps to |
+  |---|---|---|
+  | `openinference.span.kind` | **yes** — absent ⇒ refused | `Event.action` |
+  | `tool.name` | no | `Event.tool` |
+  | `input.value` / `input.mime_type` | no | `Event.inputs` |
+  | `output.value` / `output.mime_type` | no | `Event.outputs` |
+
+  Every other attribute is ignored, not an error.
+
+**Only tool spans produce roles, and this bounds the realized tier.** Roles come from
+the catalog, matched against `Event.tool`. A span with no `tool.name` has
+`tool = None`, the catalog returns no labels, and the event contributes **nothing to
+any finding** — it is parsed and ordered and that is all. LLM, AGENT, RETRIEVER and
+CHAIN spans are therefore inert today. This is the single fact that most bounds what
+realized can see, and it must be stated, not discovered.
+
+**Not read — unsupported, not forthcoming:**
+
+- **`gen_ai.*` (OTel GenAI semantic conventions).** A second convention, and a real
+  one. It lands only against a **real captured trace** of it (D9's rule, restated in
+  D12): a front-end built against an imagined format is how tools acquire silent bugs.
+  Until then the loader refuses it with an error that says so, and does not call a
+  valid GenAI trace "malformed."
+- **`retrieval.documents.*`** (RAG document content) and **LLM message payloads.** The
+  README's honest gap #1. No captured trace we hold carries these keys.
+
+`tests/test_trace_contract.py` pins this section, `FIXTURES.md`'s mapping table, and
+the loader's keys to each other: a key documented but unread, or read but undocumented,
+fails the build.
 
 **Invocation shape**
 ```

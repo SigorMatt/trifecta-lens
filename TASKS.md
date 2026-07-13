@@ -676,6 +676,38 @@ tool whose moat is *saying what it cannot do* has to gate for silence too.
 servers were hosted and unlaunchable, yields identical findings — modulo provenance,
 which must differ, and does.
 
+- [x] **3.11 Truth-up the trace input contract, and gate it (D12).** Asked what trace
+  shapes we consume, the docs and the code disagreed **in both directions**, and no
+  test could see either. `SPEC.md` §7 claimed *"OTel GenAI / OpenInference spans"* — but
+  **no `gen_ai.*` key is read in core**, and such a trace does not degrade: the
+  OpenInference span kind is required, so it is **refused on span one**, with an error
+  that blamed the user's file ("malformed fixture") for our limit. Meanwhile
+  `FIXTURES.md`'s mapping table carried a `retrieval.documents.*` row for two phases
+  that nothing has ever read — and that table *is* the contract a contributor writes a
+  fixture against.
+
+  **The error underneath both: envelope and semantic convention are two different
+  axes.** We ship **two envelopes** (flat JSONL, OTLP/JSON — auto-detected, sharing one
+  attribute→Event mapping) and **one convention** (OpenInference, six keys). Shipping a
+  second *envelope* in 2.7 quietly became a claim about *conventions*. It was not one.
+
+  Shipped: `SPEC.md` §7.3 (the supported shapes, the six keys, and the bound nobody had
+  written down — **only tool spans carry roles**, so LLM/AGENT/RETRIEVER spans are
+  parsed, ordered and **inert**); `FIXTURES.md`'s table reduced to keys that are
+  actually read; the README's honest gap #1 extended with its sibling precondition; a
+  loader refusal that **explains itself** ("your trace is not malformed; we do not speak
+  it"); and **D12**, which records the rule the OTLP adapter had already proved —
+  *adding a format is a new Stage-1 front-end, never an engine branch* — and closes
+  `OPEN_QUESTIONS.md` §5, the last open item in that file.
+
+  `tests/test_trace_contract.py` pins the documented surface to the read surface: every
+  key in the table is read, every key read is in the table, the GenAI refusal is tested
+  behaviour, and "only tool spans carry roles" is executable. **Verified it bites** by
+  re-adding the `retrieval.*` row — it fails, naming the row. *Not built (D9): the
+  GenAI front-end and RAG/LLM ingest. We hold no captured trace of either, and a
+  front-end built against an imagined format is the same mistake as the manifest that
+  turned out to contain no tools.* 268 tests green.
+
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*
 
 - Action-hijack family (`sink:impact`), **posture + reachable only**; realized
