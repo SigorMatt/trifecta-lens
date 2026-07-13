@@ -86,9 +86,16 @@ format is how the "manifest contains tools" error (F1) happened.
   `findings.ndjson` would otherwise report "clean" on a stack the tool never recognised — the
   D13 bug with a worse blast radius and **no human reading a report to catch it**. Do not ship
   a CI surface that can be silently starved.
+
+  **4.2 made this constraint sharper, not softer.** The catalog was measured at **71%
+  silent** on real stacks, and is still **39%** silent — mostly by choice. So an empty
+  findings stream is not a rare edge case a CI surface might get away with: on a stack
+  built out of Postgres and search tools it is the *expected* output. "Clean" and
+  "unrecognised" are the two things SARIF must never render identically.
 - **Action-hijack realized is a halt-and-ask**, not a default. It is blocked on "no defensible
   causation signal", and `path_basis` (D5) is the *beginning* of a vocabulary for one — not
-  yet an answer.
+  yet an answer. And before any of that: **D16** (the `Family` tier gate) must be taken, or
+  the family cannot be added without lighting up realized on the next run.
 
 ## Permanently out (do not re-litigate)
 

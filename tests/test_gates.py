@@ -457,3 +457,93 @@ def test_architecture_gate_detects_per_tool_branches() -> None:
         assert per_tool_branches_in(ast.parse(snippet)), snippet
     for snippet in clean:
         assert not per_tool_branches_in(ast.parse(snippet)), snippet
+
+
+# --- the register gates: a project that loses track of what it has NOT done ---
+#
+# These do not guard the output. They guard the RECORD — and this project has
+# already lost that record once. `OPEN_QUESTIONS.md` was closed, nothing replaced
+# it, and the same session scattered a pile of new deferrals through prose where
+# only someone who already knew would find them. `DEBT.md` exists because of that,
+# and a register nobody is forced to maintain decays into decoration.
+
+
+REPO = CORE_PACKAGE.parent
+
+
+def _repo_docs() -> list[Path]:
+    return sorted(REPO.glob("*.md"))
+
+
+def test_every_cited_decision_number_resolves() -> None:
+    """A pointer into nothing is a silence wearing a citation's clothes.
+
+    `D16` was cited in four files — SPEC, ROADMAP, DEBT, engine.py — before it had
+    an entry in `DECISIONS.md`. Anyone chasing the reference to find out what had
+    been decided would have found that nothing had, and no note saying so. An OPEN
+    entry ("not yet taken, and here is why") is a fine resolution. Nothing is not.
+    """
+    decisions = (REPO / "DECISIONS.md").read_text()
+    defined = set(re.findall(r"^## (D\d+)\b", decisions, re.MULTILINE))
+
+    cite = re.compile(r"\bD(\d+)\b")
+    dangling: list[str] = []
+    for path in [*_repo_docs(), *sorted((REPO / "trifecta_lens").glob("*.py"))]:
+        if path.name == "DECISIONS.md":
+            continue
+        for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+            for num in cite.findall(line):
+                if f"D{num}" not in defined:
+                    dangling.append(f"  {path.name}:{lineno} cites D{num}")
+
+    assert not dangling, (
+        "a decision number is cited but DECISIONS.md does not define it — add the "
+        "entry, even if it says OPEN / not yet taken:\n" + "\n".join(dangling)
+    )
+
+
+def test_the_debt_register_exists_and_is_reachable() -> None:
+    """`DEBT.md` must exist, and the files a newcomer opens must point AT it.
+
+    Debt that is written down where nobody looks has been hidden, not deferred.
+    `CLAUDE.md` (read every session) and `ROADMAP.md` (read before planning any
+    phase) are the two doors into this project; both must name the register.
+    """
+    debt = REPO / "DEBT.md"
+    assert debt.exists(), "the debt register is gone — see CLAUDE.md"
+    assert debt.read_text().strip(), "the debt register is empty"
+
+    for door in ("CLAUDE.md", "ROADMAP.md", "AGENT.md"):
+        assert "DEBT.md" in (REPO / door).read_text(), (
+            f"{door} never points at DEBT.md — a register nobody is sent to is a "
+            "register nobody reads"
+        )
+
+
+def test_the_never_fabricate_rule_covers_every_surface() -> None:
+    """The one rule with no engineering trade-off behind it must stay stated.
+
+    `CONTRIBUTING.md` used to forbid fabricating a *captured artifact* and stopped
+    there — which left the three surfaces where it would actually happen wide open:
+    a green build bought with an `xfail`, a doc showing output no run produced, or a
+    detector that recognises its own test input. All three forge a result while
+    leaving every existing gate green.
+
+    This does not check that contributors obey the rule (nothing can). It checks the
+    rule is still WRITTEN DOWN, so removing it has to be a visible act rather than a
+    quiet deletion in a tidy-up PR.
+    """
+    text = (REPO / "CONTRIBUTING.md").read_text()
+
+    for surface, needle in {
+        "artifacts": "fabricate a **captured** artifact",
+        "tests": "manufacture a **green build**",
+        "documentation": "Never show output the tool did not produce",
+        "code": "recognise its own test input",
+        "the other direction": "Do not fake a limitation either",
+    }.items():
+        assert needle in text, (
+            f"CONTRIBUTING.md no longer forbids manufacturing a result on the "
+            f"{surface!r} surface — the rule that protects the only thing this "
+            "project sells has been weakened"
+        )

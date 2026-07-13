@@ -91,6 +91,19 @@ of them is wrong even if it passes tests.
 - **Milestones are demoable.** Each phase in `ROADMAP.md` exits with something
   you could screenshot or post. Do not let unshown work pile up.
 - **Small PRs.** One milestone slice per PR. Keep diffs reviewable.
+- **Deferred work lands in `DEBT.md`, in the same PR that defers it.** Not in a
+  commit message, not in a paragraph of `DECISIONS.md` prose, not in your head.
+  A project whose whole discipline is *"say what you cannot do"* is exactly the
+  project that must not lose track of what it has **not done** — and it has
+  already happened once: the old register (`OPEN_QUESTIONS.md`) was closed and
+  nothing replaced it, while that same session generated a pile of new deferrals
+  and scattered them where only someone who already knew would find them.
+  An item leaves `DEBT.md` by being **done**, or by a decision in `DECISIONS.md`
+  saying it never will be. If you defer something and it is not in `DEBT.md`, you
+  have not deferred it — you have hidden it.
+- **A decision number must resolve.** If a comment, doc or plan cites `D<n>`,
+  `DECISIONS.md` has a `D<n>` — even if the entry says *"OPEN, not yet taken"*
+  (see **D16**). A pointer into nothing is a silence wearing a citation's clothes.
 
 ## Coding conventions
 

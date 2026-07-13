@@ -603,6 +603,53 @@ on `tier` **must not** fold it into `reachable`.
 
 ---
 
+## D16 — A `Family` must declare which tiers may report it *(OPEN — deferred to Phase 4)*
+
+> **This decision is NOT taken.** It is recorded here because four files now point at
+> "D16", and a decision number that resolves to nothing is its own kind of silence. Take
+> it deliberately at the start of Phase 4; do not let it get settled by whoever writes the
+> code first. That is exactly what `OPEN_QUESTIONS.md` used to prevent.
+
+*Raised 2026-07-13, while checking a claim this repo had repeated in three places.*
+
+**The finding.** `DEBT.md`, `ROADMAP.md` and `engine.py`'s own `FAMILIES` comment all said
+that adding the action-hijack family was *"adding a row to `FAMILIES`; the automaton does
+not move."* The second half is true. **The first half is false**, and it was verified in
+code rather than prose: `satisfied_families()` is called by **every** tier, and one of its
+call sites is `_accept` — the **realized** path.
+
+```
+_accept                       engine.py:274   <- REALIZED
+reachable_collapse            engine.py:498/502
+detect_capability             engine.py:562   <- REACHABLE
+detect_reachable_cross_agent  engine.py:618/627
+```
+
+So dropping an `action_hijack` row into `FAMILIES` starts emitting **realized**
+action-hijack findings on the very next run — which is precisely what Phase 4 forbids:
+*"posture + reachable only — hold realized until there's a defensible causation signal."*
+A contributor following our own documentation would have shipped the one finding the
+roadmap says we must not make. **The docs were a trap, and they were our trap.**
+
+**The shape of the fix (not yet decided, deliberately).** `Family` gains a declaration of
+which tiers may *report* it — acceptance is unchanged, so the machine's states, lattice
+and guard genuinely do not move; what moves is the **reporting gate**. That is still a
+change to the tier semantics in `SPEC.md` §5, and therefore a decision, not an
+implementation detail.
+
+**Why it is not being taken now.** Action-hijack's realized tier is blocked on *"no
+defensible causation signal"*, and `path_basis` (D5) is the beginning of a vocabulary for
+one, not an answer. Whether a genuine `causal` chain is *sufficient* to release
+action-hijack realized is a **halt-and-ask**. Deciding the gate's shape before that
+question is answered would be deciding the answer by accident.
+
+Until D16 is taken, the four `sink:impact` catalog entries stay **inert** — live data that
+no family accepts on. That inertness is not an accident to be cleaned up; it is the
+cleanest demonstration the project has that **coverage lives in the data and acceptance
+lives in the fixed machine.**
+
+---
+
 ## Sequencing
 
 **The Checkpoint D capture is the root dependency.** One real capture session
