@@ -181,8 +181,30 @@ traces to a committed real artifact or a fixture disclosed as hand-authored. **P
 boundary — stop here for the launch planning conversation.**
 
 **Open, and deliberately not decided by the build agent:** publishing to PyPI (needs
-the operator's credentials and is an outward-facing, one-way action), and pushing
-`main` to the public remote. Both belong to the launch conversation.
+the operator's credentials and is an outward-facing, one-way action). `main` is
+pushed (`b8ab1bf`).
+
+### ▶ The release is staged. Pick it up at `RELEASE.md`.
+
+**trifecta-lens is NOT on PyPI**, and the repo is gated so it cannot start claiming
+otherwise by accident: `tests/test_readme.py` fails the build if any README code
+block carries an install command that does not resolve today.
+
+The remaining work is **two open PRs and five steps**, and it lives in **`RELEASE.md`**
+— the full checklist plus the handoff verbatim (what was done, why the split, and the
+one-way door). `RELEASE.md` lands on `main` with **PR #2**; until that merges, read it
+on the `release/pypi-prep` branch.
+
+- **PR #2 `release/pypi-prep`** — metadata + Trusted-Publishing workflow (`v*` tag,
+  OIDC, no token) + `RELEASE.md`. Mergeable now.
+- **PR #3 `release/pypi-flip`** — **DRAFT, do not merge until the package exists.** It
+  flips the README install line *and* the test that guards it, in one commit.
+
+**The order, and the reason for it:** create the PyPI project (pending publisher) →
+create the `pypi` GitHub environment → merge #2 → tag `v0.1.0` → verify
+`pipx install "trifecta-lens[capture]"` from a machine that has never seen this repo
+→ **then** merge #3. A PyPI version number can never be reused: if `0.1.0` goes up
+wrong, the only remedy is `0.1.1` and the bad artifact is visible forever.
 
 ## Phase 4 — Fast-follow: action hijack + CI surface  *(provisional)*
 Action-hijack family (source → `sink:impact`), **posture + reachable only** —
