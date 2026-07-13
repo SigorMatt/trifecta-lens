@@ -200,6 +200,55 @@ def test_no_doc_still_claims_there_are_three_tiers() -> None:
             )
 
 
+def test_the_agent_document_map_names_every_top_level_doc() -> None:
+    """`AGENT.md` is the first file an autonomous agent reads. It had gone stale.
+
+    Its map listed seven docs and the repo had fifteen — no `DECISIONS.md` (why things
+    are the way they are), no `USAGE.md`, no `CONTRIBUTING.md`, no `DEBT.md`. An agent
+    that never learns `DECISIONS.md` exists will cheerfully re-open a question that was
+    settled deliberately, because from the code it looks like an oversight. Several of
+    them do.
+
+    Same failure as everything else this project keeps finding: not a false statement, a
+    **silence**. So the map is pinned to the filesystem.
+    """
+    listed = (ROOT / "AGENT.md").read_text(encoding="utf-8")
+    on_disk = {
+        p.name
+        for p in ROOT.glob("*.md")
+        # AGENT.md is the map itself; context.md is a personal scratch file (it is in
+        # .git/info/exclude and is not part of the repo).
+        if p.name not in {"AGENT.md", "context.md"}
+    }
+    missing = sorted(name for name in on_disk if name not in listed)
+    assert not missing, (
+        f"AGENT.md's document map does not mention {missing}. It is the first file an "
+        "agent reads; a doc it never learns about is a doc that does not exist."
+    )
+
+
+def test_deferred_work_has_somewhere_to_live() -> None:
+    """`OPEN_QUESTIONS.md` was the debt register, and closing it left a hole.
+
+    It did a real job — it forced a deferred question into the PLANNING conversation
+    instead of letting it be settled silently by whoever wrote the code next. Its last
+    item was resolved (§5 → D12) and it became history, and the same session scattered a
+    pile of new deferred items through DECISIONS.md prose where only someone who already
+    knew to look would find them.
+
+    A project whose discipline is "say what you cannot do" had deleted its only record
+    of what it had not done. `DEBT.md` is the replacement, and this pins the constraint
+    that made the old register work: **the SARIF surface must not ship able to be
+    silently starved** (D13).
+    """
+    debt = (ROOT / "DEBT.md").read_text(encoding="utf-8")
+    assert "coverage must ride into SARIF" in debt or "SARIF" in debt
+    # The binding constraint must also sit where a PLANNER meets it, not only where a
+    # decision-archaeologist would.
+    roadmap = (ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "DEBT.md" in roadmap, "the roadmap does not point a planner at what is owed"
+
+
 def test_posture_and_the_chain_tier_do_not_both_claim_to_be_the_weakest() -> None:
     """"Weaker" has TWO axes, and conflating them was a real slip in this very work.
 

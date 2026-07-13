@@ -263,6 +263,12 @@ the beginning of the vocabulary for one. Whether a genuine `causal` chain is
 *sufficient* to release action-hijack realized is a **halt-and-ask**, not a
 default.
 
+**Binding before this phase starts (D13): coverage must ride into SARIF.** A CI job
+consuming an empty `findings.ndjson` would otherwise report "clean" on a stack the tool
+never recognised — the D13 bug with a worse blast radius and **no human reading a report
+to catch it**. Do not ship a CI surface that can be silently starved. The rest of what
+this phase owes is in **`DEBT.md`**; read it before planning.
+
 - **Exit:** action-hijack posture/reachable findings + SARIF in a CI run.
 - **Shareable:** "gate your agent's PRs on trifecta findings" Action.
 

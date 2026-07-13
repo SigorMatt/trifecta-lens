@@ -5,18 +5,32 @@ then the specific task you're working. This file defines the run loop, the scope
 of this run, and the points where you must stop and hand back to a human.
 
 ## Document map
+- `README.md` — the launch page, and a **gated artifact**: `tests/test_readme.py`
+  regenerates every line of output it shows and forbids causal/attack language,
+  overclaiming, and an install command that does not resolve today. Edit it like code.
 - `SPEC.md` — what to build (behavior). Source of truth.
 - `CLAUDE.md` — how to build + non-negotiable invariants. Never violate.
 - `DESIGN.md` — engine architecture: the fixed property automaton, the
   two-stage seam, technology decisions. Binding for the Phase 2 engine
   extraction; two constraints (incremental fold, NDJSON append-stream) bind
   from Phase 1.
+- `DECISIONS.md` — **why it is shaped this way.** D1–D15, including the findings
+  that proved two committed specs *wrong*. Read the decision before re-opening
+  the question; several look like oversights and are not.
+- `DEBT.md` — **what is owed and what was deliberately not done.** If you defer
+  work, it lands there in the same PR. Read it before planning anything.
 - `ROADMAP.md` — phase sequencing.
 - `TASKS.md` — the PR-sized checklist you execute against.
 - `FIXTURES.md` — the trace input contract + worked example.
+- `USAGE.md` — the user-facing manual. **It is executed** (`tests/test_usage.py`
+  runs every command in it and diffs every line of output shown).
+- `CONTRIBUTING.md` — the catalog-entry flywheel: how coverage is added as *data*.
+- `INCIDENTS.md` — the primary-source-verified incident citations.
 - `ENVIRONMENT.md` — runtime & toolchain contract (exact commands, network
   zones, credentials). Conform to it; never choose your own runtime or invent
   commands.
+- `OPEN_QUESTIONS.md` — history: how the Phase-1/2 questions were raised and
+  closed. Superseded as a register by `DEBT.md`.
 - This file — orchestration: loop, scope, halt points.
 
 ## Autonomy contract (updated 2026-07-12 — supersedes the Phase 0/1 bounded run)
