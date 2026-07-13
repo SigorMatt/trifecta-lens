@@ -631,6 +631,51 @@ and verified citations.
 
 - **Exit:** a stranger installs and runs it on their own agent in ~60s. Launch.
 
+### Phase 3 addendum — the stranger whose servers we cannot launch (D11)
+
+Found by reading the launch docs against the code, **after** the Phase 3 exit was
+called. The exit claim was "a stranger installs and runs it on their own agent in
+~60s" — and it silently held only for strangers whose MCP servers run **locally over
+stdio**. `trifecta-capture` cannot launch a remote or hosted server (it has no
+command), the README never said so, and the quickstart therefore **failed on first
+contact** for an entire class of stacks. Not a false statement: a silence. Which is
+the same class of defect as the `pipx install` line that would have 404'd, and a
+tool whose moat is *saying what it cannot do* has to gate for silence too.
+
+- [x] **3.8 Publish the inventory as an input contract.** The findings NDJSON was
+  frozen, schema'd and gated while the one file we ask the *world* to produce was
+  prose plus ad-hoc raises. `schema/inventory.schema.json` + `SPEC.md` §7.2 +
+  **D11**. `tests/test_inventory_schema.py` pins the schema and the loader to
+  requiring **exactly** the same keys (a stricter contract turns working inventories
+  away; a looser one blesses files that fail inside a stage seam) — and proves the
+  claim the contract rests on: an inventory carrying only `{server, tool: {name}}`
+  yields **byte-identical findings** to the full captured artifact. The analyzer
+  reads nothing else; descriptions and `inputSchema`s are for the auditor, and F2 is
+  the reason no detector *could* read them.
+- [x] **3.9 `trifecta-capture --from-tools-list`.** Hand it a `tools/list` response
+  you obtained by any means. Composes with `--context`, makes `--config` optional,
+  mixes freely with launchable servers. Accepts the three envelopes an operator will
+  actually be holding; fails loudly on a fourth rather than digging a tool list out
+  of a shape it does not recognise. **The honesty-critical half is `provenance_for`:**
+  it wrote *"launched over stdio and recorded verbatim"* — a claim about what *we*
+  did, and a fabrication if said of a file someone handed us. It is the one field
+  where a capture tool can lie without touching a single tool name. Each source now
+  gets its own sentence, and the supplied one disclaims what it cannot attest to.
+  *Rejected: teaching the tool every MCP transport — a growing surface chasing a
+  moving spec, to reach a response the operator already has.*
+- [x] **3.10 The README, and the gate that would have caught this.** The quickstart
+  branches on transport; the inventory is named as a file with a published schema;
+  the no-network absolute is scoped **in its own paragraph** (reusing the
+  paragraph-scoping lesson from 3.1 — a neighbouring paragraph is not a disclosure).
+  Two new gates in `tests/test_readme.py` for the new failure class, **unstated
+  preconditions**: the README must name the stdio limit *and* the way past it (a
+  stated limit with no exit reads as "does not work for my stack", which is false).
+  Verified by running them against the pre-3.10 README: both fail. 263 tests green.
+
+**Verified end-to-end:** the real Checkpoint D inventory, rebuilt as if all three
+servers were hosted and unlaunchable, yields identical findings — modulo provenance,
+which must differ, and does.
+
 ## Phase 4 — Fast-follow: action hijack + CI  *(provisional)*
 
 - Action-hijack family (`sink:impact`), **posture + reachable only**; realized

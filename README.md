@@ -68,8 +68,9 @@ here before it is true.)
 ```
 pipx install "trifecta-lens[capture] @ git+https://github.com/SigorMatt/trifecta-lens"
 
-# 1. Capture your agent's tool inventory (launches your servers, asks tools/list,
-#    calls nothing). --context declares which agent sees which servers.
+# 1. Capture your agent's tool inventory. Launches your STDIO servers, asks each
+#    one tools/list, calls nothing. --context declares which agent sees which
+#    servers — that declaration is what the reachable tier reads.
 trifecta-capture --config .mcp.json --out inventory.json \
     --context assistant=github,fetch,vault \
     --context triage=github \
@@ -91,6 +92,47 @@ auditability. The MCP SDK rides only on the `[capture]` extra.
 The inventory alone gets you posture and reachable — the two tiers that need no
 trace at all. A tier with no input **does not run, and says so**; it never reports
 a clean result it did not check for.
+
+### If your servers are remote or hosted
+
+`trifecta-capture` launches servers over **stdio**. A remote or hosted MCP server has
+no command to launch, so it cannot start one — and it will tell you so rather than
+quietly leaving a leg out of your topology.
+
+That is not a dead end, because **the inventory is a file, not a privilege**. Fetch
+that server's `tools/list` response however your stack allows, and hand it over:
+
+```
+trifecta-capture --config .mcp.json --from-tools-list wiki=wiki-tools.json \
+    --out inventory.json --context assistant=vault,wiki
+```
+
+Servers you *can* launch stay in `--config`; the two mix in one inventory. A tool list
+that came from a real running server **is a capture, whoever fetched it** — the line
+this project holds is captured-versus-fabricated, and it has never been
+automated-versus-manual. The provenance note records which servers we launched and
+which you supplied, and it does not claim we launched yours.
+
+You can also skip the tool entirely and write the file. Its shape is a published
+contract — [`schema/inventory.schema.json`](schema/inventory.schema.json) — and it is
+small on purpose, because **the analyzer reads only the context id, the server, and the
+tool name**:
+
+```json
+{"contexts": [
+  {"id": "assistant",
+   "provenance": "fetched tools/list from our hosted wiki by hand, 2026-07-13",
+   "tools": [{"server": "wiki", "tool": {"name": "publish_page"}}]}
+]}
+```
+
+Descriptions and `inputSchema`s are recorded verbatim when a capture produces them —
+for the human who will audit the artifact — and are read by no detector. (They
+*couldn't* be: tool schemas cannot constrain reachability, which is [why the middle
+tier is co-exposure and not type-compatibility](DECISIONS.md).) A test holds this
+honest: an inventory carrying only names yields byte-identical findings to our full
+captured one. The one thing that must never happen is recording a tool **no server
+listed**.
 
 ## Why this shape
 
@@ -117,7 +159,15 @@ tests, not by good intentions.
 
 - **It is not an enforcement layer.** It is not a firewall, not a runtime, not a
   gateway. It never sits in the request path, never executes a tool, never opens a
-  network connection. It reads two files and writes a report.
+  network connection. It reads two files and writes a report. **That absolute is
+  about `trifecta-lens` itself** — and it is structural, not a promise: CI fails the
+  build if a network import appears anywhere in the analyzer. The optional
+  `trifecta-capture` is a *separate package* precisely so the claim can stay absolute.
+  It does launch your MCP servers, exactly as your host does, and asks each one
+  `tools/list` — that is the one thing in this project that speaks to anything. It
+  **calls no tool**, it runs once, offline, on your machine, and the analyzer never
+  needs it: hand `trifecta-lens` an inventory from any source and it will never know
+  the difference.
 - **It observes flow, never causation.** A realized finding says *"tainted data
   observed reaching `<sink>`"*. It never says untrusted content **made** the agent
   do anything — that would require establishing intent from a trace, and a trace

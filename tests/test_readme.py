@@ -227,6 +227,69 @@ def test_the_readme_states_the_four_honest_gaps() -> None:
     assert not missing, f"README does not state these honest gaps: {missing}"
 
 
+def test_the_readme_names_the_capture_tools_transport_limit_and_the_way_past_it() -> (
+    None
+):
+    """The gate class this file was missing: an **unstated precondition** (D11).
+
+    Every test above hunts for a false *statement*. None of them could see the thing
+    that actually shipped: a 60-second quickstart that opens with `trifecta-capture
+    --config .mcp.json` and **fails on first contact for anyone whose MCP servers are
+    remote or hosted** — because the tool speaks stdio and those have no command to
+    launch. Nothing in the README said so. That is the same failure as the `pipx
+    install` line that would have 404'd, wearing different clothes: not a lie, a
+    silence, and a reader who follows the instructions still ends up stuck.
+
+    For a tool whose whole moat is saying what it cannot do, a gate that only catches
+    overclaims is half a gate. So the README must name the limit AND the way past it —
+    the escape hatch is load-bearing, because a limit with no exit reads as "does not
+    work for me."
+    """
+    text = _readme()
+    assert "stdio" in text.lower(), (
+        "the README does not say trifecta-capture only launches stdio servers — a "
+        "remote/hosted MCP user follows the quickstart and hits a hard error with no "
+        "warning and no way forward"
+    )
+    assert "--from-tools-list" in text, (
+        "the README names no way to build an inventory for a server we cannot launch. "
+        "A stated limit with no exit is worse than no statement: it reads as 'this "
+        "tool does not work for my stack', which is false (DECISIONS.md D11)."
+    )
+    assert "schema/inventory.schema.json" in text, (
+        "the README does not tell the reader the inventory is a published contract "
+        "they can satisfy themselves"
+    )
+
+
+def test_the_no_network_absolute_is_scoped_where_it_is_made() -> None:
+    """`trifecta-capture` DOES talk to your servers. The absolute must not hide it.
+
+    "never opens a network connection. It reads two files" is true of the analyzer and
+    sat fifty lines below a quickstart whose step 1 launches your servers and speaks a
+    protocol to them. Both statements were accurate; the prominent one was the
+    absolute, and the reader most likely to notice the tension is exactly the skeptic
+    this project is written for.
+
+    The disclosure has to live in the SAME paragraph as the claim — the lesson already
+    learned in `test_the_readme_never_claims_a_realized_trifecta_in_the_wild`, where a
+    planted violation walked through a 400-character window because a *neighbouring*
+    paragraph happened to say the right words. A reader takes the claim from the
+    sentence they are reading.
+    """
+    # The claim is prose and wraps; match across the line breaks it wraps at.
+    claim = re.compile(r"never\s+opens\s+a\s+network\s+connection")
+    paragraphs = [p for p in re.split(r"\n\s*\n", _readme()) if claim.search(p)]
+    assert paragraphs, "the no-network claim vanished from the README"
+    for paragraph in paragraphs:
+        assert "trifecta-capture" in paragraph, (
+            "the README states the no-network absolute without, in the same paragraph, "
+            "scoping it to the analyzer and disclosing that trifecta-capture launches "
+            "your servers. The reader takes the claim from the sentence they are "
+            f"reading:\n{paragraph}"
+        )
+
+
 def test_the_readme_never_claims_a_realized_trifecta_in_the_wild() -> None:
     """The launch claim (D10), enforced.
 

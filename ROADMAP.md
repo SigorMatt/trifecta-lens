@@ -180,6 +180,29 @@ something else.
 traces to a committed real artifact or a fixture disclosed as hand-authored. **Phase
 boundary — stop here for the launch planning conversation.**
 
+#### Addendum (3.8–3.10, D11) — the exit held for fewer strangers than it claimed
+
+Reading the launch docs against the code *after* the exit was called turned up the
+gap: `trifecta-capture` launches servers over **stdio**, so a stranger whose MCP
+servers are **remote or hosted** followed the 60-second quickstart into a hard error
+— and nothing in the README warned them, or told them the error was survivable. It
+is: the analyzer reads only the context id, the server, and the tool name, so an
+inventory is cheap to assemble by hand, and **a `tools/list` response obtained from a
+real running server is a capture whoever fetched it** (D11 — the line this project
+holds is captured-vs-fabricated, never automated-vs-manual).
+
+Shipped: the inventory published as an input contract
+(`schema/inventory.schema.json`, `SPEC.md` §7.2); `trifecta-capture
+--from-tools-list`, which mixes freely with launchable servers and whose provenance
+note refuses to claim we launched a server we were handed a file for; and the README
+fix. 263 tests green.
+
+**The lesson is about the gates.** Every honesty test in this repo hunted for a false
+*statement*. This defect was a **silence** — an unstated precondition — and it walked
+straight through. `tests/test_readme.py` now gates that class too, and was checked
+against the pre-fix README to confirm it bites. A tool whose moat is saying what it
+cannot do has to test for what it failed to say.
+
 **Open, and deliberately not decided by the build agent:** publishing to PyPI (needs
 the operator's credentials and is an outward-facing, one-way action). `main` is
 pushed (`b8ab1bf`).
