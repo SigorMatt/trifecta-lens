@@ -1,0 +1,60 @@
+# Publish to PyPI on a `v*` tag, via Trusted Publishing (OIDC).
+#
+# There is NO API token in this repo and there must never be one: PyPI mints a
+# short-lived credential for this exact workflow, in this exact repo, at run time.
+# That requires a one-time setup on PyPI's side (see RELEASE.md) — a Trusted
+# Publisher for SigorMatt/trifecta-lens, workflow `release.yml`, environment `pypi`.
+#
+# The gates run FIRST and the job stops if they fail. A PyPI version number can
+# never be reused: an upload is the one action in this project that cannot be taken
+# back, so nothing gets uploaded that has not passed the same checks `main` passes,
+# plus proof that the built wheel installs clean and finds what it should.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "0.11.25"
+      - run: uv sync --extra dev
+      - run: make check
+      # The wheel that is about to be published is the one this installs and runs.
+      - run: make install-check
+
+  publish:
+    needs: gates
+    runs-on: ubuntu-latest
+    # The environment is the human gate: require a reviewer on it in the repo
+    # settings and no tag can publish itself without someone approving the run.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/trifecta-lens
+    permissions:
+      # Mint the OIDC token PyPI trades for a short-lived upload credential.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "0.11.25"
+
+      # The tag IS the version claim. If v0.2.0 is tagged while pyproject still
+      # says 0.1.0, that is a release of the wrong thing under the right name — and
+      # it is unfixable once uploaded. So it fails here instead.
+      - name: The tag must match the version in pyproject.toml
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(uv run python -c 'import tomllib,pathlib;print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          echo "tag=$tag pyproject=$pkg"
+          test "$tag" = "$pkg" || { echo "::error::tag v$tag != pyproject version $pkg"; exit 1; }
+
+      - run: uv build
+      - name: Publish to PyPI (Trusted Publishing — no token)
+        run: uv publish --trusted-publishing always
